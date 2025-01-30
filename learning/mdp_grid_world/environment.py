@@ -1,6 +1,5 @@
 from enum import Enum
 from typing import Tuple
-
 import numpy as np
 import rootutils
 
@@ -10,69 +9,119 @@ from learning.mdp_grid_world.actions import Action
 
 
 class GridWorldEnvironment:
+    """
+    A 4x4 GridWorld environment for reinforcement learning agents.
+    The environment consists of a grid where the agent navigates by taking actions.
     
-    def __init__(self):
-        self.__grid = self.__create_grid()
-    
-    def __create_grid(self):
+    Attributes:
+        __grid (np.ndarray): A 4x4 numpy array representing state rewards in the environment.
+    """
+
+    def __init__(self) -> None:
+        """
+        Initializes the GridWorld environment by creating a grid with rewards.
+        """
+        self.__grid: np.ndarray = self.__create_grid()
+
+    def __create_grid(self) -> np.ndarray:
+        """
+        Creates a 4x4 grid representing the environment.
+        Positive values indicate rewards, negative values indicate penalties.
+
+        Returns:
+            np.ndarray: A 4x4 numpy array representing the grid with rewards.
+        """
         grid = np.zeros((4, 4), dtype=np.int8)
-        
-        # TODO: try implementing probabilities to of actions in every state like:
-        # grid[2, 3] = [reward, probability of performing a selected action]
+
+        # Define rewards and penalties
         grid[0, 0] = 0
         grid[0, 1] = -1
         grid[0, 2] = -1
         grid[0, 3] = -100
-        
+
         grid[1, 0] = -1
         grid[1, 1] = -100
         grid[1, 2] = -1
         grid[1, 3] = -1
-        
+
         grid[2, 0] = -1
         grid[2, 1] = -1
         grid[2, 2] = -100
         grid[2, 3] = -1
-        
+
         grid[3, 0] = -100
         grid[3, 1] = -1
         grid[3, 2] = -1
-        grid[3, 3] = 100
-        
+        grid[3, 3] = 100  # Goal state
+
         return grid
-    
-    def __calculate_next_position(self, current_position, action):
-        next_position = (current_position[0], current_position[1])
-        
-        if action == Action.UP.value:
-            next_position = (current_position[0] - 1, current_position[1])
-        elif action == Action.DOWN.value:
-            next_position = (current_position[0] + 1, current_position[1])
-        elif action == Action.LEFT.value:
-            next_position = (current_position[0], current_position[1] - 1)
-        elif action == Action.RIGHT.value:
-            next_position = (current_position[0], current_position[1] + 1)
-            
-        # Check if out of bounds
-        if not (0 <= next_position[0] < 4 and 0 <= next_position[1] < 4):
-            return current_position  # If out of bounds, return the same position
-        
-        return next_position
-    
+
+    def __calculate_next_position(self, current_position: Tuple[int, int], action: Action) -> Tuple[int, int]:
+        """
+        Calculates the next position of the agent based on the selected action.
+
+        Args:
+            current_position (Tuple[int, int]): The current (row, column) position.
+            action (Action): The action to be performed.
+
+        Returns:
+            Tuple[int, int]: The new position of the agent.
+        """
+        x, y = current_position
+
+        if action == Action.UP:
+            x -= 1
+        elif action == Action.DOWN:
+            x += 1
+        elif action == Action.LEFT:
+            y -= 1
+        elif action == Action.RIGHT:
+            y += 1
+
+        # Ensure the agent stays within the grid boundaries
+        if not (0 <= x < 4 and 0 <= y < 4):
+            return current_position  # Stay in the same position if out of bounds
+
+        return (x, y)
+
     @property
     def grid(self) -> np.ndarray:
+        """
+        Returns the grid representation of the environment.
+
+        Returns:
+            np.ndarray: A 4x4 numpy array containing the environment's rewards.
+        """
         return self.__grid
-    
-    def step(self, current_position: Tuple[int, int], action: Action):
-        reward = 0
-        done = False
+
+    def step(self, current_position: Tuple[int, int], action: Action) -> Tuple[Tuple[int, int], int, bool]:
+        """
+        Executes an action in the environment and returns the next state, reward, and done flag.
+
+        Args:
+            current_position (Tuple[int, int]): The agent's current position.
+            action (Action): The action chosen by the agent.
+
+        Returns:
+            Tuple[Tuple[int, int], int, bool]: 
+                - The next state (row, column).
+                - The reward received after taking the action.
+                - A boolean indicating whether the episode is done.
+        """
         next_state = self.__calculate_next_position(current_position, action)
+
+        # If the agent stays in the same place (e.g., moves out of bounds), apply penalty
         if next_state == current_position:
-            reward = -100
+            reward = -100  # Harsh penalty for trying to move out of bounds
+            done = False
             return next_state, reward, done
+
+        # Get the reward from the grid
         reward = self.__grid[next_state]
-        if reward == 100:
-            done = True
+
+        # Check if the episode should end
+        done = reward == 100  # Goal reached
+
         return next_state, reward, done
     
     
