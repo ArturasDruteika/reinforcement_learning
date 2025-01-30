@@ -1,3 +1,4 @@
+import numpy as np
 from tqdm import tqdm
 import rootutils
 from typing import Tuple
@@ -47,13 +48,18 @@ class QLearningTrainer:
         """Returns the number of episodes for training."""
         return self.__num_episodes
 
-    def train(self) -> None:
+    def train(self, epsilon: float = 1e-4) -> None:
         """
-        Trains the Q-learning agent in the GridWorld environment.
-        Updates the agent's Q-table over multiple episodes.
+        Trains the Q-learning agent in the GridWorld environment with early stopping.
+        Stops training when Q-values stabilize (i.e., updates become smaller than `epsilon`).
+
+        Args:
+            epsilon (float): Threshold for Q-value convergence. If the change is below this, stop training.
         """
-        print("\n🔹 **Training Q-learning Agent**")
-        for _ in tqdm(range(self.__num_episodes)):
+        print("\n🔹 **Training Q-learning Agent with Early Stopping**")
+
+        for episode in tqdm(range(self.__num_episodes), desc="Training Progress"):
+            prev_q_table = np.copy(self.__agent.q_table)  # Save previous Q-table state
             current_state = (0, 0)  # Start position
             done = False
 
@@ -62,6 +68,13 @@ class QLearningTrainer:
                 next_state, reward, done = self.__env.step(current_state, action)
                 self.__agent.update_q_values(current_state, action, reward, next_state, done)
                 current_state = next_state  # Move to the next state
+
+            # Compute max Q-value change across the table
+            max_q_change = np.max(np.abs(self.__agent.q_table - prev_q_table))
+
+            if max_q_change < epsilon:  # Stop if Q-values stabilize
+                print(f"\n✅ Training stopped early at episode {episode} (Q-values converged).")
+                break
 
     def test(self, max_steps: int = 50) -> None:
         """

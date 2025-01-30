@@ -113,11 +113,15 @@ class GridWorldEnvironment:
         # If the agent stays in the same place (e.g., moves out of bounds), apply penalty
         if next_state == current_position:
             reward = -100  # Harsh penalty for trying to move out of bounds
-            done = False
+            done = True
             return next_state, reward, done
 
         # Get the reward from the grid
         reward = self.__grid[next_state]
+        
+        if reward == -100:
+            done = True  # Game over: agent reached a penalty state
+            return next_state, reward, done
 
         # Check if the episode should end
         done = reward == 100  # Goal reached
