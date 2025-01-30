@@ -44,13 +44,13 @@ class GridWorldEnvironment:
     def __calculate_next_position(self, current_position, action):
         next_position = (current_position[0], current_position[1])
         
-        if action == Action.UP:
+        if action == Action.UP.value:
             next_position = (current_position[0] - 1, current_position[1])
-        elif action == Action.DOWN:
+        elif action == Action.DOWN.value:
             next_position = (current_position[0] + 1, current_position[1])
-        elif action == Action.LEFT:
+        elif action == Action.LEFT.value:
             next_position = (current_position[0], current_position[1] - 1)
-        elif action == Action.RIGHT:
+        elif action == Action.RIGHT.value:
             next_position = (current_position[0], current_position[1] + 1)
             
         # Check if out of bounds
@@ -65,11 +65,15 @@ class GridWorldEnvironment:
     
     def step(self, current_position: Tuple[int, int], action: Action):
         reward = 0
+        done = False
         next_state = self.__calculate_next_position(current_position, action)
         if next_state == current_position:
             reward = -100
+            return next_state, reward, done
         reward = self.__grid[next_state]
-        return next_state, reward
+        if reward == 100:
+            done = True
+        return next_state, reward, done
     
     
 if __name__ == '__main__':
@@ -79,5 +83,5 @@ if __name__ == '__main__':
     actions = [Action.RIGHT, Action.DOWN, Action.RIGHT, Action.DOWN, Action.RIGHT, Action.DOWN]
     current_position = (0, 0)
     for action in actions:
-        current_position, reward = env.step(current_position, action)
-        print(f"current position: {current_position}, reward: {reward}")
+        current_position, reward, done = env.step(current_position, action)
+        print(f"current position: {current_position}, reward: {reward}, done: {done}")
