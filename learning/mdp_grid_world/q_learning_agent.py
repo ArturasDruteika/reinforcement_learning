@@ -1,10 +1,12 @@
+import random
+from typing import List, Tuple
+
 import numpy as np
 import rootutils
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 from learning.mdp_grid_world.actions import Action
-from typing import List, Tuple
 
 
 class QLearningAgent:
@@ -46,7 +48,6 @@ class QLearningAgent:
         self.__epsilon: float = epsilon
         self.__epsilon_decay: float = epsilon_decay
         self.__min_epsilon: float = min_epsilon
-        self.__actions: List[Action] = [Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT]
         self.__q_table: np.ndarray = self.__initialize_q_table(self.__state_space_size, self.__action_space_size)
 
     @staticmethod
@@ -95,11 +96,6 @@ class QLearningAgent:
         return self.__min_epsilon
 
     @property
-    def actions(self) -> List[Action]:
-        """Returns the list of possible actions."""
-        return self.__actions
-
-    @property
     def q_table(self) -> np.ndarray:
         """Returns the current Q-table."""
         return self.__q_table
@@ -116,14 +112,15 @@ class QLearningAgent:
         """
         if np.random.rand() < self.__epsilon:
             # Exploration: Choose a random action
-            return np.random.choice(self.__actions)
+            return random.choice(list(Action))
         else:
             # Exploitation: Choose the best known action
             action_index: int = np.argmax(self.__q_table[current_state[0], current_state[1]])
             return Action(action_index)
 
     def update_q_values(
-        self, current_state: Tuple[int, int], 
+        self, 
+        current_state: Tuple[int, int], 
         action: Action, 
         reward: float, 
         next_state: Tuple[int, int], 
@@ -142,7 +139,7 @@ class QLearningAgent:
         Returns:
             None
         """
-        current_q: float = self.__q_table[current_state[0], current_state[1]][action.value]
+        current_q: float = self.__q_table[current_state[0], current_state[1], action.value]
 
         if done:
             target_q = reward  # Terminal state has no future rewards
@@ -151,7 +148,7 @@ class QLearningAgent:
             target_q = reward + self.__gamma * max_next_q  # Compute target
 
         # Q-learning update rule
-        self.__q_table[current_state[0], current_state[1]][action.value] += self.__alpha * (target_q - current_q)
+        self.__q_table[current_state[0], current_state[1], action.value] += self.__alpha * (target_q - current_q)
 
         # Decay epsilon after each update to reduce exploration over time
         self.__decay_epsilon()
