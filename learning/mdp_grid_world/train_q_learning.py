@@ -110,7 +110,11 @@ class QLearningTrainer:
 
 if __name__ == '__main__':
     env = GridWorldEnvironment()
-    agent = QLearningAgent(state_space_size=4, action_space_size=4, learning_rate=0.1, discount_ratio=0.9)
+    state_size = env.grid.shape
+    agent = QLearningAgent(state_space_size=state_size, 
+                           action_space_size=4, 
+                           learning_rate=0.1, 
+                           discount_ratio=0.9)
     num_episodes = 1000
 
     trainer = QLearningTrainer(env, agent, num_episodes)
