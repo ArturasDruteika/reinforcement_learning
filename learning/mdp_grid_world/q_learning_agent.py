@@ -12,7 +12,7 @@ class QLearningAgent:
     A Q-learning agent that learns an optimal policy for navigating a GridWorld environment.
 
     Attributes:
-        __state_space_size (int): Number of states in the environment.
+        __state_space_size Tuple[int, int]: Number of states in the environment.
         __action_space_size (int): Number of possible actions.
         __alpha (float): Learning rate for Q-learning updates.
         __gamma (float): Discount factor for future rewards.
@@ -22,7 +22,7 @@ class QLearningAgent:
 
     def __init__(
         self,
-        state_space_size: int,
+        state_space_size: Tuple[int, int],
         action_space_size: int,
         learning_rate: float,
         discount_ratio: float,
@@ -39,7 +39,7 @@ class QLearningAgent:
             learning_rate (float): Learning rate (alpha) for updating Q-values.
             discount_ratio (float): Discount factor (gamma) for considering future rewards.
         """
-        self.__state_space_size: int = state_space_size
+        self.__state_space_size: Tuple[int, int] = state_space_size
         self.__action_space_size: int = action_space_size
         self.__alpha: float = learning_rate
         self.__gamma: float = discount_ratio
@@ -50,18 +50,18 @@ class QLearningAgent:
         self.__q_table: np.ndarray = self.__initialize_q_table(self.__state_space_size, self.__action_space_size)
 
     @staticmethod
-    def __initialize_q_table(state_space_size: int, action_space_size: int) -> np.ndarray:
+    def __initialize_q_table(state_space_size: Tuple[int, int], action_space_size: int) -> np.ndarray:
         """
         Initializes the Q-table with small random values.
 
         Args:
-            state_space_size (int): Number of states in the environment.
+            state_space_size Tuple[int, int],: Number of states in the environment.
             action_space_size (int): Number of possible actions.
 
         Returns:
             np.ndarray: A 3D Q-table initialized with random values.
         """
-        return np.random.uniform(0, 1, (state_space_size, state_space_size, action_space_size))
+        return np.random.uniform(0, 1, (state_space_size[0], state_space_size[1], action_space_size))
     
     def __decay_epsilon(self):
         """
