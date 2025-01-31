@@ -20,7 +20,16 @@ class QLearningAgent:
         __q_table (np.ndarray): Q-table storing the action-value estimates.
     """
 
-    def __init__(self, state_space_size: int, action_space_size: int, learning_rate: float, discount_ratio: float):
+    def __init__(
+        self,
+        state_space_size: int,
+        action_space_size: int,
+        learning_rate: float,
+        discount_ratio: float,
+        epsilon: float = 1.0,
+        epsilon_decay: float = 0.995,
+        min_epsilon: float = 0.01
+    ):
         """
         Initializes the Q-learning agent with a Q-table and learning parameters.
 
@@ -34,6 +43,9 @@ class QLearningAgent:
         self.__action_space_size: int = action_space_size
         self.__alpha: float = learning_rate
         self.__gamma: float = discount_ratio
+        self.__epsilon: float = epsilon
+        self.__epsilon_decay: float = epsilon_decay
+        self.__min_epsilon: float = min_epsilon
         self.__actions: List[Action] = [Action.UP, Action.DOWN, Action.LEFT, Action.RIGHT]
         self.__q_table: np.ndarray = self.__initialize_q_table(self.__state_space_size, self.__action_space_size)
 
@@ -50,6 +62,12 @@ class QLearningAgent:
             np.ndarray: A 3D Q-table initialized with random values.
         """
         return np.random.uniform(0, 1, (state_space_size, state_space_size, action_space_size))
+    
+    def __decay_epsilon(self):
+        """
+        Decreases the epsilon threshold for exploration.
+        """
+        self.__epsilon = max(self.__epsilon * self.__epsilon_decay, self.__min_epsilon)
 
     @property
     def learning_rate(self) -> float:
@@ -60,6 +78,21 @@ class QLearningAgent:
     def discount_ratio(self) -> float:
         """Returns the discount factor (gamma)."""
         return self.__gamma
+    
+    @property
+    def epsilon(self) -> float:
+        """Returns the epsilon threshold for exploration."""
+        return self.__epsilon
+    
+    @property
+    def epsilon_decay(self) -> float:
+        """Returns the epsilon decay rate."""
+        return self.__epsilon_decay
+    
+    @property
+    def min_epsilon(self) -> float:
+        """Returns the minimum epsilon threshold."""
+        return self.__min_epsilon
 
     @property
     def actions(self) -> List[Action]:
@@ -73,18 +106,29 @@ class QLearningAgent:
 
     def choose_action(self, current_state: Tuple[int, int]) -> Action:
         """
-        Chooses the best action based on the Q-values for the current state.
+        Chooses an action using the ε-greedy strategy.
 
         Args:
             current_state (Tuple[int, int]): The current state in the environment.
 
         Returns:
-            Action: The best action based on the Q-table.
+            Action: The chosen action based on exploration-exploitation tradeoff.
         """
-        action_index: int = np.argmax(self.__q_table[current_state[0], current_state[1]])
-        return Action(action_index)
+        if np.random.rand() < self.__epsilon:
+            # Exploration: Choose a random action
+            return np.random.choice(self.__actions)
+        else:
+            # Exploitation: Choose the best known action
+            action_index: int = np.argmax(self.__q_table[current_state[0], current_state[1]])
+            return Action(action_index)
 
-    def update_q_values(self, current_state: Tuple[int, int], action: Action, reward: float, next_state: Tuple[int, int], done: bool) -> None:
+    def update_q_values(
+        self, current_state: Tuple[int, int], 
+        action: Action, 
+        reward: float, 
+        next_state: Tuple[int, int], 
+        done: bool
+    ) -> None:
         """
         Updates the Q-values using the Q-learning update rule.
 
@@ -108,3 +152,6 @@ class QLearningAgent:
 
         # Q-learning update rule
         self.__q_table[current_state[0], current_state[1]][action.value] += self.__alpha * (target_q - current_q)
+
+        # Decay epsilon after each update to reduce exploration over time
+        self.__decay_epsilon()
