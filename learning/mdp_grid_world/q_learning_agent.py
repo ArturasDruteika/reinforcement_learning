@@ -1,25 +1,23 @@
-import random
-from typing import List, Tuple
-
-import numpy as np
+from typing import Tuple
 import rootutils
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 from learning.mdp_grid_world.actions import Action
+from learning.mdp_grid_world.agent import Agent
 
 
-class QLearningAgent:
+class QLearningAgent(Agent):
     """
     A Q-learning agent that learns an optimal policy for navigating a GridWorld environment.
 
     Attributes:
         __state_space_size Tuple[int, int]: Number of states in the environment.
         __action_space_size (int): Number of possible actions.
-        __alpha (float): Learning rate for Q-learning updates.
-        __gamma (float): Discount factor for future rewards.
+        _alpha (float): Learning rate for Q-learning updates.
+        _gamma (float): Discount factor for future rewards.
         __actions (List[Action]): List of possible actions.
-        __q_table (np.ndarray): Q-table storing the action-value estimates.
+        _q_table (np.ndarray): Q-table storing the action-value estimates.
     """
 
     def __init__(
@@ -41,82 +39,12 @@ class QLearningAgent:
             learning_rate (float): Learning rate (alpha) for updating Q-values.
             discount_ratio (float): Discount factor (gamma) for considering future rewards.
         """
-        self.__state_space_size: Tuple[int, int] = state_space_size
-        self.__action_space_size: int = action_space_size
-        self.__alpha: float = learning_rate
-        self.__gamma: float = discount_ratio
-        self.__epsilon: float = epsilon
-        self.__epsilon_decay: float = epsilon_decay
-        self.__min_epsilon: float = min_epsilon
-        self.__q_table: np.ndarray = self.__initialize_q_table(self.__state_space_size, self.__action_space_size)
-
-    @staticmethod
-    def __initialize_q_table(state_space_size: Tuple[int, int], action_space_size: int) -> np.ndarray:
-        """
-        Initializes the Q-table with small random values.
-
-        Args:
-            state_space_size Tuple[int, int],: Number of states in the environment.
-            action_space_size (int): Number of possible actions.
-
-        Returns:
-            np.ndarray: A 3D Q-table initialized with random values.
-        """
-        return np.random.uniform(0, 1, (state_space_size[0], state_space_size[1], action_space_size))
-    
-    def __decay_epsilon(self):
-        """
-        Decreases the epsilon threshold for exploration.
-        """
-        self.__epsilon = max(self.__epsilon * self.__epsilon_decay, self.__min_epsilon)
-
-    @property
-    def learning_rate(self) -> float:
-        """Returns the learning rate (alpha)."""
-        return self.__alpha
-
-    @property
-    def discount_ratio(self) -> float:
-        """Returns the discount factor (gamma)."""
-        return self.__gamma
-    
-    @property
-    def epsilon(self) -> float:
-        """Returns the epsilon threshold for exploration."""
-        return self.__epsilon
-    
-    @property
-    def epsilon_decay(self) -> float:
-        """Returns the epsilon decay rate."""
-        return self.__epsilon_decay
-    
-    @property
-    def min_epsilon(self) -> float:
-        """Returns the minimum epsilon threshold."""
-        return self.__min_epsilon
-
-    @property
-    def q_table(self) -> np.ndarray:
-        """Returns the current Q-table."""
-        return self.__q_table
-
-    def choose_action(self, current_state: Tuple[int, int]) -> Action:
-        """
-        Chooses an action using the ε-greedy strategy.
-
-        Args:
-            current_state (Tuple[int, int]): The current state in the environment.
-
-        Returns:
-            Action: The chosen action based on exploration-exploitation tradeoff.
-        """
-        if np.random.rand() < self.__epsilon:
-            # Exploration: Choose a random action
-            return random.choice(list(Action))
-        else:
-            # Exploitation: Choose the best known action
-            action_index: int = np.argmax(self.__q_table[current_state[0], current_state[1]])
-            return Action(action_index)
+        super(QLearningAgent, self).__init__(state_space_size, 
+                                             action_space_size, 
+                                             learning_rate, 
+                                             discount_ratio, 
+                                             epsilon, epsilon_decay, 
+                                             min_epsilon)
 
     def update_q_values(
         self, 
@@ -139,16 +67,16 @@ class QLearningAgent:
         Returns:
             None
         """
-        current_q: float = self.__q_table[current_state[0], current_state[1], action.value]
+        current_q: float = self._q_table[current_state[0], current_state[1], action.value]
 
         if done:
             target_q = reward  # Terminal state has no future rewards
         else:
-            max_next_q = max(self.__q_table[next_state[0], next_state[1]])  # Best Q-value of next state
-            target_q = reward + self.__gamma * max_next_q  # Compute target
+            max_next_q = max(self._q_table[next_state[0], next_state[1]])  # Best Q-value of next state
+            target_q = reward + self._gamma * max_next_q  # Compute target
 
         # Q-learning update rule
-        self.__q_table[current_state[0], current_state[1], action.value] += self.__alpha * (target_q - current_q)
+        self._q_table[current_state[0], current_state[1], action.value] += self._alpha * (target_q - current_q)
 
         # Decay epsilon after each update to reduce exploration over time
-        self.__decay_epsilon()
+        self._decay_epsilon()
