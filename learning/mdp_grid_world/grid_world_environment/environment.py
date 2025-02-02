@@ -5,7 +5,7 @@ import rootutils
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
-from learning.mdp_grid_world.actions import Action
+from learning.mdp_grid_world.grid_world_environment.actions import Action
 
 
 class GridWorldEnvironment:
@@ -17,10 +17,11 @@ class GridWorldEnvironment:
         __grid (np.ndarray): A 4x4 numpy array representing state rewards in the environment.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, transition_prob = 1.0) -> None:
         """
         Initializes the GridWorld environment by creating a grid with rewards.
         """
+        self.__transition_prob = transition_prob
         self.__grid: np.ndarray = self.__create_grid()
 
     def __create_grid(self) -> np.ndarray:
