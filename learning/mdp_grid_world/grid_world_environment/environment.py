@@ -1,5 +1,7 @@
 from enum import Enum
 from typing import Tuple
+import random
+
 import numpy as np
 import rootutils
 
@@ -16,6 +18,8 @@ class GridWorldEnvironment:
     Attributes:
         __grid (np.ndarray): A 4x4 numpy array representing state rewards in the environment.
     """
+    
+    # TODO: integrate actions list
 
     def __init__(self, transition_prob = 1.0) -> None:
         """
@@ -69,7 +73,11 @@ class GridWorldEnvironment:
             Tuple[int, int]: The new position of the agent.
         """
         x, y = current_position
-
+        
+        # Include stochasticity
+        if random.random() > self.__transition_prob:
+            action = random.choice(list(Action))
+        
         if action == Action.UP:
             x -= 1
         elif action == Action.DOWN:
@@ -84,6 +92,10 @@ class GridWorldEnvironment:
             return current_position  # Stay in the same position if out of bounds
 
         return (x, y)
+    
+    @property
+    def transition_prob(self) -> float:
+        return self.__transition_prob
 
     @property
     def grid(self) -> np.ndarray:
@@ -111,17 +123,15 @@ class GridWorldEnvironment:
         """
         next_state = self.__calculate_next_position(current_position, action)
 
-        # If the agent stays in the same place (e.g., moves out of bounds), apply penalty
         if next_state == current_position:
-            reward = -100  # Harsh penalty for trying to move out of bounds
-            done = True
-            return next_state, reward, done
-
-        # Get the reward from the grid
-        reward = self.__grid[next_state]
-        
+            reward = -5 
+        else:
+            # Get the reward from the grid
+            reward = self.__grid[next_state]
+            
+        # Check if game over
         if reward == -100:
-            done = True  # Game over: agent reached a penalty state
+            done = True  
             return next_state, reward, done
 
         # Check if the episode should end
