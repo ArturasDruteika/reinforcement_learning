@@ -74,9 +74,10 @@ class GridWorldEnvironment:
         """
         x, y = current_position
         
-        # Include stochasticity
-        if random.random() > self.__transition_prob:
-            action = random.choice(list(Action))
+        if self.__transition_prob < 1.0:
+            # Include stochasticity
+            if random.random() > self.__transition_prob:
+                action = random.choice(list(Action))
         
         if action == Action.UP:
             x -= 1
