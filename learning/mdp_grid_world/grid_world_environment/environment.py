@@ -1,5 +1,4 @@
-from enum import Enum
-from typing import Tuple
+from typing import Tuple, Dict
 import random
 
 import numpy as np
@@ -27,6 +26,7 @@ class GridWorldEnvironment:
         """
         self.__transition_prob = transition_prob
         self.__grid: np.ndarray = self.__create_grid()
+        self.__grid_transition_dynamics = self.__create_grid_transition_dynamics()
 
     def __create_grid(self) -> np.ndarray:
         """
@@ -39,7 +39,7 @@ class GridWorldEnvironment:
         grid = np.zeros((4, 4), dtype=np.int8)
 
         # Define rewards and penalties
-        grid[0, 0] = 0
+        grid[0, 0] = -1
         grid[0, 1] = -1
         grid[0, 2] = -1
         grid[0, 3] = -100
@@ -60,6 +60,57 @@ class GridWorldEnvironment:
         grid[3, 3] = 100  # Goal state
 
         return grid
+    
+    def __create_grid_transition_dynamics(self) -> Dict:
+        """
+        Creates a transition dynamics dictionary for the grid environment.
+        Handles any transition probability dynamically.
+        """
+        transition_dynamics = {}
+
+        for row in range(self.__grid.shape[0]):
+            for col in range(self.__grid.shape[1]):
+                state = (row, col)
+                transition_dynamics[state] = {}
+
+                for action in Action:
+                    intended_next_state = self.__calculate_next_position(state, action)
+                    
+                    unintended_actions = [a for a in Action if a != action]  # Other actions
+                    unintended_next_states = {a: self.__calculate_next_position(state, a) for a in unintended_actions}
+
+                    # Initialize probabilities
+                    transitions = []
+                    intended_prob = self.__transition_prob  # User-defined probability
+                    unintended_prob = (1.0 - self.__transition_prob) / len(unintended_actions)  # Spread over other actions
+
+                    # Add intended move
+                    transitions.append((
+                        intended_prob,
+                        intended_next_state,
+                        self.__grid[intended_next_state],
+                        self.__is_terminal_state(intended_next_state)
+                    ))
+
+                    # Add unintended moves
+                    for unintended_action, next_state in unintended_next_states.items():
+                        transitions.append((
+                            unintended_prob,
+                            next_state,
+                            self.__grid[next_state],
+                            self.__is_terminal_state(next_state)
+                        ))
+
+                    # Store transitions for (state, action)
+                    transition_dynamics[state][action] = transitions
+
+        return transition_dynamics
+    
+    def __is_terminal_state(self, state: Tuple[int, int]) -> bool:
+        """
+        Checks if a given state is terminal (goal or hole).
+        """
+        return self.__grid[state] == -100 or self.__grid[state] == 100
 
     def __calculate_next_position(self, current_position: Tuple[int, int], action: Action) -> Tuple[int, int]:
         """
@@ -107,6 +158,16 @@ class GridWorldEnvironment:
             np.ndarray: A 4x4 numpy array containing the environment's rewards.
         """
         return self.__grid
+    
+    @property
+    def grid_transition_dynamics(self) -> Dict:
+        """
+        Returns the transition dynamics of the grid environment.
+
+        Returns:
+            dict: A dictionary representing the transition dynamics.
+        """
+        return self.__grid_transition_dynamics
 
     def step(self, current_position: Tuple[int, int], action: Action) -> Tuple[Tuple[int, int], int, bool]:
         """
@@ -142,10 +203,18 @@ class GridWorldEnvironment:
     
     
 if __name__ == '__main__':
-    env = GridWorldEnvironment()
-    print(env.grid)
+    env = GridWorldEnvironment(0.9)
     
-    actions = [Action.RIGHT, Action.DOWN, Action.RIGHT, Action.DOWN, Action.RIGHT, Action.DOWN]
+    print("\n=== Transition Dynamics ===")
+    for state, actions in env.grid_transition_dynamics.items():  # Access private attribute safely
+        print(f"\nState {state}:")
+        for action, transitions in actions.items():
+            print(f"  Action {action.name}:")
+            for prob, next_state, reward, done in transitions:
+                print(f"    → Prob: {prob:.2f}, Next: {next_state}, Reward: {reward}, Terminal: {done}")
+    print("\n===========================")
+    
+    actions = [Action.DOWN, Action.DOWN, Action.RIGHT, Action.DOWN, Action.RIGHT, Action.RIGHT]
     current_position = (0, 0)
     for action in actions:
         current_position, reward, done = env.step(current_position, action)
