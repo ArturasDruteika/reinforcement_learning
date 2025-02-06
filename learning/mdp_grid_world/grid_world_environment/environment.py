@@ -147,6 +147,12 @@ class GridWorldEnvironment:
     
     @property
     def transition_prob(self) -> float:
+        """
+        Returns the transition probability for the grid environment.
+
+        Returns:
+            float: The transition probability.
+        """
         return self.__transition_prob
 
     @property

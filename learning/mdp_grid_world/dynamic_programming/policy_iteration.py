@@ -85,7 +85,7 @@ class PolicyIteration:
         Returns:
             float: The calculated subvalue.
         """
-        return action_prob * transition_prob * (reward + self.__gamma * next_state_value) * (not done)
+        return action_prob * transition_prob * (reward + self.__gamma * next_state_value * (not done))
     
     @property
     def action_state_size(self) -> int:
