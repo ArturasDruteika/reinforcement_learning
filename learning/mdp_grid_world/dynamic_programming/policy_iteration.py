@@ -43,6 +43,7 @@ class PolicyIteration:
         self.__actions = [action for action in range(action_state_size)]
         self.__state_values = self.__init_state_values()
         self.__policy_table = self.__init_random_policy()
+        self.__policy_stable = False
         
     def __init_state_values(self) -> np.ndarray:
         """
@@ -111,6 +112,10 @@ class PolicyIteration:
     def policy_table(self) -> np.ndarray:
         return self.__policy_table
     
+    @property
+    def policy_stable(self) -> bool:
+        return self.__policy_stable
+    
     def __evaluate_policy(self) -> None:
         """
         Evaluates the current policy by updating state values until convergence.
@@ -142,7 +147,6 @@ class PolicyIteration:
                     delta = max(delta, np.abs(self.__state_values[i, j] - current_state_value))
                     
             self.__state_values = new_state_values  # Update state values
-            
             # Stop if changes are smaller than the threshold
             if delta < self.__theta:
                 break
@@ -152,8 +156,27 @@ class PolicyIteration:
         Improves the policy greedily based on the current state values.
         Updates the policy to be greedy with respect to the current value function.
         """
-        pass
+        policy_stable = True
+        
+        for i in range(self.__env.grid.shape[0]):
+            for j in range(self.__env.grid.shape[1]):
+                old_action = np.argmax(self.__policy_table[i, j])
                 
+                action_values = np.zeros(self.__action_state_size)
+                for action in self.__actions:
+                    for transition_prob, next_state, reward, done in self.__env.grid_transition_dynamics[(i, j)][Action(action)]:
+                        action_values[action] += transition_prob * (reward + self.__gamma * self.__state_values[next_state] * (not done))
+                
+                best_action = np.argmax(action_values)
+                new_policy = np.zeros(self.__action_state_size)
+                new_policy[best_action] = 1.0
+                self.__policy_table[i, j] = new_policy
+                
+                if old_action != best_action:
+                    policy_stable = False
+        
+        self.__policy_stable = policy_stable
+        
     def run_policy_iteration(self) -> None:
         """
         Runs the Policy Iteration algorithm:
@@ -161,11 +184,16 @@ class PolicyIteration:
         2. Improve the policy based on the updated values.
         3. Repeat until the policy is stable.
         """
-        self.__evaluate_policy()
-        self.__improve_policy()
+        iteration = 0
+        while not self.__policy_stable:
+            self.__evaluate_policy()
+            self.__improve_policy()
+            iteration += 1
+            print(iteration)
     
     
 if __name__ == '__main__':
     env = GridWorldEnvironment(transition_prob=0.9)
     policy_iteration = PolicyIteration(env, action_state_size=4, gamma=0.9, theta=0.001)
     policy_iteration.run_policy_iteration()
+    print(policy_iteration.state_values)
