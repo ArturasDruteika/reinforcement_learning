@@ -62,7 +62,7 @@ class PolicyIteration:
             np.ndarray: Policy table with uniform probability for each action.
         """
         grid_height, grid_width = self.__env.grid.shape
-        policy = np.full((grid_height, grid_width, self.__action_state_size), 1 / self.__action_state_size)
+        policy = np.ones((grid_height, grid_width, self.__action_state_size)) / self.__action_state_size
         return policy
 
     def __calculate_state_action_subvalue(
@@ -121,30 +121,31 @@ class PolicyIteration:
         Evaluates the current policy by updating state values until convergence.
         Uses the Bellman expectation equation for policy evaluation.
         """
+        rows, cols = self.__env.grid.shape
         while True:
-            delta = 0  # Track the largest change in state values
-            new_state_values = np.zeros_like(self.__state_values)
+            new_state_values = self.__state_values.copy()
             
-            for i in range(self.__env.grid.shape[0]):
-                for j in range(self.__env.grid.shape[1]):
+            for i in range(rows):
+                for j in range(cols):
                     current_state_value = 0
                     
-                    for action in self.__actions:
-                        action_prob = self.__policy_table[i, j, action]
-                        
-                        for transition_prob, next_state, reward, done in self.__env.grid_transition_dynamics[(i, j)][Action(action)]:
-                            current_state_value += self.__calculate_state_action_subvalue(
-                                action_prob,  
-                                transition_prob, 
-                                reward,  
-                                self.__state_values[next_state],
-                                done
-                            )
+                    if self.__env.grid[i, j] != -100 and self.__env.grid[i, j] != 100:
+                        for action in self.__actions:
+                            action_prob = self.__policy_table[i, j, action]
+                            
+                            for transition_prob, next_state, reward, done in self.__env.grid_transition_dynamics[(i, j)][Action(action)]:
+                                current_state_value += self.__calculate_state_action_subvalue(
+                                    action_prob,  
+                                    transition_prob, 
+                                    reward,  
+                                    self.__state_values[next_state],
+                                    done
+                                )
                         
                     new_state_values[i, j] = current_state_value  
             
-                    # Compute max change in state values across all states
-                    delta = max(delta, np.abs(self.__state_values[i, j] - current_state_value))
+            # Compute max change in state values across all states
+            delta = np.max(np.abs(new_state_values - self.__state_values))
                     
             self.__state_values = new_state_values  # Update state values
             # Stop if changes are smaller than the threshold
