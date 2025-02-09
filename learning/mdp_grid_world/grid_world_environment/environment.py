@@ -9,6 +9,13 @@ rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 from learning.mdp_grid_world.grid_world_environment.actions import Action
 
 
+class RewardValues:
+    NORMAL_STATE_VALUE = -1
+    HOLE_STATE_VALUE = -1000
+    GOAL_STATE_VALUE = 100
+    SAME_STATE_VALUE = -5
+
+
 class GridWorldEnvironment:
     """
     A 4x4 GridWorld environment for reinforcement learning agents.
@@ -36,28 +43,28 @@ class GridWorldEnvironment:
         Returns:
             np.ndarray: A 4x4 numpy array representing the grid with rewards.
         """
-        grid = np.zeros((4, 4), dtype=np.int8)
+        grid = np.zeros((4, 4), dtype=np.int16)
 
         # Define rewards and penalties
-        grid[0, 0] = -1
-        grid[0, 1] = -1
-        grid[0, 2] = -1
-        grid[0, 3] = -100
+        grid[0, 0] = RewardValues.NORMAL_STATE_VALUE
+        grid[0, 1] = RewardValues.NORMAL_STATE_VALUE
+        grid[0, 2] = RewardValues.NORMAL_STATE_VALUE
+        grid[0, 3] = RewardValues.HOLE_STATE_VALUE
 
-        grid[1, 0] = -1
-        grid[1, 1] = -100
-        grid[1, 2] = -1
-        grid[1, 3] = -1
+        grid[1, 0] = RewardValues.NORMAL_STATE_VALUE
+        grid[1, 1] = RewardValues.HOLE_STATE_VALUE
+        grid[1, 2] = RewardValues.NORMAL_STATE_VALUE
+        grid[1, 3] = RewardValues.NORMAL_STATE_VALUE
 
-        grid[2, 0] = -1
-        grid[2, 1] = -1
-        grid[2, 2] = -100
-        grid[2, 3] = -1
+        grid[2, 0] = RewardValues.NORMAL_STATE_VALUE
+        grid[2, 1] = RewardValues.NORMAL_STATE_VALUE
+        grid[2, 2] = RewardValues.HOLE_STATE_VALUE
+        grid[2, 3] = RewardValues.NORMAL_STATE_VALUE
 
-        grid[3, 0] = -100
-        grid[3, 1] = -1
-        grid[3, 2] = -1
-        grid[3, 3] = 100  # Goal state
+        grid[3, 0] = RewardValues.HOLE_STATE_VALUE
+        grid[3, 1] = RewardValues.NORMAL_STATE_VALUE
+        grid[3, 2] = RewardValues.NORMAL_STATE_VALUE
+        grid[3, 3] = RewardValues.GOAL_STATE_VALUE  # Goal state
 
         return grid
     
@@ -110,7 +117,7 @@ class GridWorldEnvironment:
         """
         Checks if a given state is terminal (goal or hole).
         """
-        return self.__grid[state] == -100 or self.__grid[state] == 100
+        return self.__grid[state] == RewardValues.HOLE_STATE_VALUE or self.__grid[state] == RewardValues.GOAL_STATE_VALUE
 
     def __calculate_next_position(self, current_position: Tuple[int, int], action: Action) -> Tuple[int, int]:
         """
@@ -192,18 +199,18 @@ class GridWorldEnvironment:
         next_state = self.__calculate_next_position(current_position, action)
 
         if next_state == current_position:
-            reward = -5 
+            reward = RewardValues.SAME_STATE_VALUE
         else:
             # Get the reward from the grid
             reward = self.__grid[next_state]
             
         # Check if game over
-        if reward == -100:
+        if reward == RewardValues.HOLE_STATE_VALUE:
             done = True  
             return next_state, reward, done
 
         # Check if the episode should end
-        done = reward == 100  # Goal reached
+        done = reward == RewardValues.GOAL_STATE_VALUE  # Goal reached
 
         return next_state, reward, done
     
