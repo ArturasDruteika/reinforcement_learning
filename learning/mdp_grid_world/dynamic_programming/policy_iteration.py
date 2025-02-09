@@ -5,7 +5,7 @@ import rootutils
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
-from learning.mdp_grid_world.grid_world_environment.environment import GridWorldEnvironment
+from learning.mdp_grid_world.grid_world_environment.environment import GridWorldEnvironment, RewardValues
 from learning.mdp_grid_world.grid_world_environment.actions import Action
 
 
@@ -123,24 +123,30 @@ class PolicyIteration:
         """
         rows, cols = self.__env.grid.shape
         while True:
-            new_state_values = self.__state_values.copy()
+            new_state_values = np.zeros_like(self.__state_values)
             
             for i in range(rows):
                 for j in range(cols):
+                    if self.__env.grid[i, j] == RewardValues.HOLE_STATE_VALUE:
+                        new_state_values[i, j] = RewardValues.HOLE_STATE_VALUE
+                        continue
+                    if self.__env.grid[i, j] == RewardValues.GOAL_STATE_VALUE:
+                        new_state_values[i, j] = RewardValues.GOAL_STATE_VALUE
+                        continue
+                    
                     current_state_value = 0
                     
-                    if self.__env.grid[i, j] != -100 and self.__env.grid[i, j] != 100:
-                        for action in self.__actions:
-                            action_prob = self.__policy_table[i, j, action]
-                            
-                            for transition_prob, next_state, reward, done in self.__env.grid_transition_dynamics[(i, j)][Action(action)]:
-                                current_state_value += self.__calculate_state_action_subvalue(
-                                    action_prob,  
-                                    transition_prob, 
-                                    reward,  
-                                    self.__state_values[next_state],
-                                    done
-                                )
+                    for action in self.__actions:
+                        action_prob = self.__policy_table[i, j, action]
+                        
+                        for transition_prob, next_state, reward, done in self.__env.grid_transition_dynamics[(i, j)][Action(action)]:
+                            current_state_value += self.__calculate_state_action_subvalue(
+                                action_prob,  
+                                transition_prob, 
+                                reward,  
+                                self.__state_values[next_state],
+                                done
+                            )
                         
                     new_state_values[i, j] = current_state_value  
             
@@ -161,6 +167,8 @@ class PolicyIteration:
         
         for i in range(self.__env.grid.shape[0]):
             for j in range(self.__env.grid.shape[1]):
+                if self.__env.grid[i, j] in [RewardValues.HOLE_STATE_VALUE, RewardValues.GOAL_STATE_VALUE]:
+                    continue  # No policy improvement needed for terminal states
                 old_action = np.argmax(self.__policy_table[i, j])
                 
                 action_values = np.zeros(self.__action_state_size)
@@ -190,11 +198,72 @@ class PolicyIteration:
             self.__evaluate_policy()
             self.__improve_policy()
             iteration += 1
-            print(iteration)
+        print(f"Optimal policy found on iteration: {iteration}")
+        
+
+    def test(self) -> None:
+        """
+        Tests the optimal policy using the given environment.
+        Stops when the goal is reached or the agent falls off the grid.
+        """
+        current_state = (0, 0)
+        best_action = np.argmax(self.__policy_table[current_state])
+        
+        while True:
+            print(f"Current state: {current_state}")
+            print(f"Best action: {Action(best_action)}")
+            
+            next_state, reward, done = self.__env.step(current_state, Action(best_action))
+            print(f"Next state: {next_state}, Reward: {reward}, Done: {done}")
+            print()
+            
+            if reward == RewardValues.GOAL_STATE_VALUE:
+                print("Goal reached!")
+                break
+            elif reward == RewardValues.HOLE_STATE_VALUE:
+                print("Agent fell off the grid!")
+                break
+            
+            current_state = next_state
+            best_action = np.argmax(self.__policy_table[current_state])
+            
+    def display_policy(self) -> None:
+        """
+        Displays the best policy for each state in the grid using arrows to represent actions.
+        """
+        # Mapping action indices to arrows (assuming actions: 0=UP, 1=DOWN, 2=LEFT, 3=RIGHT)
+        arrow_mapping = {
+            0: '↑',  # Action.UP
+            1: '↓',  # Action.DOWN
+            2: '←',  # Action.LEFT
+            3: '→'   # Action.RIGHT
+        }
+
+        grid_height, grid_width = self.__env.grid.shape
+
+        for i in range(grid_height):
+            row_policy = ''
+            for j in range(grid_width):
+                # Check for terminal states
+                if self.__env.grid[i, j] == RewardValues.HOLE_STATE_VALUE:
+                    row_policy += ' ❌ '  # Hole
+                elif self.__env.grid[i, j] == RewardValues.GOAL_STATE_VALUE:
+                    row_policy += ' ⭐ '   # Goal
+                else:
+                    # Select the best action (highest probability)
+                    best_action = np.argmax(self.__policy_table[i, j])
+                    row_policy += f' {arrow_mapping[best_action]} '
+            print(row_policy)
+
+        print(self.__state_values)
+
     
     
 if __name__ == '__main__':
     env = GridWorldEnvironment(transition_prob=0.9)
-    policy_iteration = PolicyIteration(env, action_state_size=4, gamma=0.9, theta=0.001)
+    policy_iteration = PolicyIteration(env, action_state_size=4, gamma=0.99, theta=1e-8)
     policy_iteration.run_policy_iteration()
-    print(policy_iteration.state_values)
+    policy_iteration.test()
+    policy_iteration.display_policy()
+    
+
