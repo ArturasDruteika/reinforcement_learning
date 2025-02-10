@@ -7,10 +7,10 @@ import rootutils
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
-from learning.mdp_grid_world.environment import GridWorldEnvironment
-from learning.mdp_grid_world.q_learning_agent import QLearningAgent
-from learning.mdp_grid_world.sarsa_agent import SarsaAgent
-from learning.mdp_grid_world.agent import Agent
+from learning.mdp_grid_world.grid_world_environment.environment import GridWorldEnvironment
+from learning.mdp_grid_world.temporal_difference_learning.agents.q_learning_agent import QLearningAgent
+from learning.mdp_grid_world.temporal_difference_learning.agents.sarsa_agent import SarsaAgent
+from learning.mdp_grid_world.temporal_difference_learning.agents.agent import Agent
 
 
 class TrainingMode(Enum):
