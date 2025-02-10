@@ -10,8 +10,21 @@ from learning.mdp_grid_world.grid_world_environment.actions import Action
 
 
 class RewardValues:
+    """
+    Defines the reward values for different states in the GridWorld environment.
+
+    Attributes:
+        NORMAL_STATE_VALUE (int): The reward for moving into a normal (non-terminal) state.
+            Typically a small negative value to encourage reaching the goal efficiently.
+        HOLE_STATE_VALUE (int): The penalty for falling into a hole state, representing a failure.
+            This is a large negative value to strongly discourage falling into holes.
+        GOAL_STATE_VALUE (int): The reward for reaching the goal state, representing success.
+            This is a large positive value to encourage reaching the goal.
+        SAME_STATE_VALUE (int): The penalty for attempting to move into an invalid position,
+            resulting in staying in the same state. This discourages invalid moves.
+    """
     NORMAL_STATE_VALUE = -1
-    HOLE_STATE_VALUE = -1000
+    HOLE_STATE_VALUE = -100
     GOAL_STATE_VALUE = 100
     SAME_STATE_VALUE = -5
 
@@ -24,8 +37,6 @@ class GridWorldEnvironment:
     Attributes:
         __grid (np.ndarray): A 4x4 numpy array representing state rewards in the environment.
     """
-    
-    # TODO: integrate actions list
 
     def __init__(self, transition_prob = 1.0) -> None:
         """
@@ -81,10 +92,10 @@ class GridWorldEnvironment:
                 transition_dynamics[state] = {}
 
                 for action in Action:
-                    intended_next_state = self.__calculate_next_position(state, action)
+                    intended_next_state = self.__calculate_next_position(state, action, stochastic=False)
                     
                     unintended_actions = [a for a in Action if a != action]  # Other actions
-                    unintended_next_states = {a: self.__calculate_next_position(state, a) for a in unintended_actions}
+                    unintended_next_states = {a: self.__calculate_next_position(state, a, stochastic=False) for a in unintended_actions}
 
                     # Initialize probabilities
                     transitions = []
@@ -119,21 +130,21 @@ class GridWorldEnvironment:
         """
         return self.__grid[state] == RewardValues.HOLE_STATE_VALUE or self.__grid[state] == RewardValues.GOAL_STATE_VALUE
 
-    def __calculate_next_position(self, current_position: Tuple[int, int], action: Action) -> Tuple[int, int]:
+    def __calculate_next_position(self, current_position: Tuple[int, int], action: Action, stochastic: bool = True) -> Tuple[int, int]:
         """
-        Calculates the next position of the agent based on the selected action.
-
+        Calculates the next position based on the action.
+        
         Args:
-            current_position (Tuple[int, int]): The current (row, column) position.
-            action (Action): The action to be performed.
-
+            current_position: The current (row, column) position.
+            action: The action to be performed.
+            stochastic: If False, removes randomness for deterministic transitions.
+            
         Returns:
-            Tuple[int, int]: The new position of the agent.
+            Tuple[int, int]: The next position of the agent.
         """
         x, y = current_position
         
-        if self.__transition_prob < 1.0:
-            # Include stochasticity
+        if stochastic and self.__transition_prob < 1.0:
             if random.random() > self.__transition_prob:
                 action = random.choice(list(Action))
         
