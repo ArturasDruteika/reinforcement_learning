@@ -69,12 +69,6 @@ class Agent(ABC):
             np.ndarray: A 3D Q-table initialized with random values.
         """
         return np.zeros((state_space_size[0], state_space_size[1], action_space_size))
-
-    def _decay_epsilon(self) -> None:
-        """
-        Decreases the epsilon value for exploration.
-        """
-        self._epsilon = max(self._epsilon * self._epsilon_decay, self._min_epsilon)
         
     @property
     def state_space_size(self) -> Tuple[int, int]:
@@ -133,6 +127,12 @@ class Agent(ABC):
             # Exploitation: Choose the best action from Q-table
             action_index: int = np.argmax(self._q_table[current_state[0], current_state[1]])
             return Action(action_index)
+        
+    def decay_epsilon(self) -> None:
+        """
+        Decreases the epsilon value for exploration.
+        """
+        self._epsilon = max(self._epsilon * self._epsilon_decay, self._min_epsilon)
 
     @abstractmethod
     def update_q_values(self, *args, **kwargs) -> None:

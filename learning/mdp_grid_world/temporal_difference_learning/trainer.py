@@ -94,6 +94,8 @@ class Trainer:
                     action = next_action  # Update action for next loop
 
                 current_state = next_state  # Move to next state
+            
+            self.__agent.decay_epsilon()
 
             max_q_change = np.max(np.abs(self.__agent.q_table - prev_q_table))
             if max_q_change < epsilon:
@@ -140,16 +142,27 @@ class Trainer:
 
 
 if __name__ == '__main__':
-    env = GridWorldEnvironment()
+    env = GridWorldEnvironment(transition_prob=0.9)
     state_size = env.grid.shape
-    agent = QLearningAgent(
+    sarsa_agent = SarsaAgent(
         state_space_size=state_size,
         action_space_size=4,
-        learning_rate=0.1,
+        learning_rate=0.01,
         discount_ratio=0.9,
     )
-    num_episodes = 100000
     
-    trainer = Trainer(env, agent, num_episodes)
-    trainer.train()
-    trainer.test()
+    q_learning_agent = QLearningAgent(
+        state_space_size=state_size,
+        action_space_size=4,
+        learning_rate=0.01,
+        discount_ratio=0.9,
+    )
+    num_episodes = 10000
+    
+    trainer_sarsa = Trainer(env, sarsa_agent, num_episodes)
+    trainer_sarsa.train()
+    trainer_sarsa.test()
+    
+    trainer_q_learning = Trainer(env, q_learning_agent, num_episodes)
+    trainer_q_learning.train()
+    trainer_q_learning.test()

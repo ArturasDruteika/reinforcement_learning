@@ -84,6 +84,3 @@ class SarsaAgent(Agent):
 
         # SARSA update rule
         self._q_table[current_state[0], current_state[1], action.value] += self._alpha * (target_q - current_q)
-
-        # Decay epsilon
-        self._decay_epsilon()
