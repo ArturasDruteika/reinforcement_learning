@@ -77,6 +77,4 @@ class QLearningAgent(Agent):
 
         # Q-learning update rule
         self._q_table[current_state[0], current_state[1], action.value] += self._alpha * (target_q - current_q)
-
-        # Decay epsilon after each update to reduce exploration over time
-        self._decay_epsilon()
+        
