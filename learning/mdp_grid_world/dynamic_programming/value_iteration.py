@@ -1,4 +1,6 @@
 from typing import List, Tuple, Union
+import time
+
 import numpy as np
 import rootutils
 
@@ -173,10 +175,17 @@ if __name__ == '__main__':
         gamma=0.99, 
         theta=1e-4
     )
+    
+    start_time = time.time()  # Start the timer
     value_iteration.run_value_iteration()
+    end_time = time.time()    # End the timer
+    
     value_iteration.test()
-
     print()
     print(value_iteration.state_values)
     print()
     print(value_iteration.policy_table)
+    print()
+    
+    execution_time = end_time - start_time
+    print(f"Time taken to find the optimal policy: {execution_time:.6f} seconds")

@@ -1,4 +1,5 @@
 from typing import List
+import time
 
 import numpy as np
 import rootutils
@@ -262,8 +263,16 @@ class PolicyIteration:
 if __name__ == '__main__':
     env = GridWorldEnvironment(transition_prob=0.9)
     policy_iteration = PolicyIteration(env, action_state_size=4, gamma=0.99, theta=1e-8)
+    
+    start_time = time.time()  # Start the timer
     policy_iteration.run_policy_iteration()
+    end_time = time.time()    # End the timer
+
     policy_iteration.test()
     policy_iteration.display_policy()
+    print()
+    
+    execution_time = end_time - start_time
+    print(f"Time taken to find the optimal policy: {execution_time:.6f} seconds")
     
 
