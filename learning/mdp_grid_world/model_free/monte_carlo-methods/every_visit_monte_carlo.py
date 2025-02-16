@@ -18,15 +18,15 @@ class EveryVisitMonteCarlo:
         self, 
         state_space_size: Tuple[int, int], 
         action_state_size: int,
-        gamma,
-        alpha,
+        gamma: float,
+        alpha: float,
         epsilon: float = 1.0,
         epsilon_decay: float = 0.995,
         min_epsilon: float = 0.01
     ):
         self.__state_space_size = state_space_size
         self.__action_state_size = action_state_size
-        self.__gamma = gamma,
+        self.__gamma = gamma
         self.__alpha = alpha
         self.__epsilon = epsilon
         self.__epsilon_decay = epsilon_decay
@@ -51,9 +51,10 @@ class EveryVisitMonteCarlo:
         self, 
         state: Tuple[int, int], 
         action: Action, 
-        reward: Union[int, float]
+        cumulitive_return: float
     ):
-        self.__q_table[state[0], state[1], action] = self.__q_table[state[0], state[1], action] + self.__alpha * (reward - self.__q_table[state[0], state[1], action])
+        self.__q_table[state[0], state[1], action] += self.__alpha * (cumulitive_return - self.__q_table[state[0], state[1], action])
+
     
     @property
     def state_space_size(self) -> Tuple[int, int]:
@@ -125,13 +126,25 @@ class EveryVisitMonteCarlo:
             state = episode_info_dict['state']
             action = episode_info_dict['action']
             next_state = episode_info_dict['next_state']
-            reward = episode_info_dict['reward']
+            cumulitive_return = episode_info_dict['G']
             done = episode_info_dict['done']
             
-            self.__update_state_action_value(state, action.value, reward)
+            self.__update_state_action_value(state, action.value, cumulitive_return)
             
             if done:
                 break
+
+
+def test(every_visit_mc: EveryVisitMonteCarlo, env: GridWorldEnvironment):
+    current_state = (0, 0)  # Start from the top-left corner
+    reward = 0
+    done = False
+
+    while not done:
+        action = every_visit_mc.choose_action(current_state)
+        next_state, reward, done = env.step(current_state, action)
+        print(f'State: {current_state}, Action: {action.name}, Reward: {reward}, Next State: {next_state}, Done: {done}')
+        current_state = next_state
     
     
 if __name__ == '__main__':
@@ -143,32 +156,43 @@ if __name__ == '__main__':
         alpha=1e-5
     )
     n_episodes = 10_000
-    
     start_state = (0, 0)
-    current_state = start_state
+    
     reward = 0
-    episode_info = {'state': None,
-                    'action': None,
-                    'next_state': None,
-                    'reward': None,
-                    'done': False}
     episodes_info_list = []
     
+    # Fix training loop
     for episode in tqdm(range(n_episodes)):
+        current_state = start_state  # Reset state at beginning of episode
+        reward = 0  # Ensure reward is reset
+        episodes_info_list = []
+
         while reward != RewardValues.HOLE_STATE_VALUE and reward != RewardValues.GOAL_STATE_VALUE:
             action = every_visit_monte_carlo.choose_action(current_state)
             next_state, reward, done = env.step(current_state, action)
-            episode_info['state'] = current_state
-            episode_info['action'] = action
-            episode_info['next_state'] = next_state
-            episode_info['reward'] = reward
-            episode_info['done'] = done
-            episodes_info_list.append(episode_info.copy())
+
+            # Append a new dictionary, not a reference
+            episodes_info_list.append({
+                'state': current_state,
+                'action': action,
+                'next_state': next_state,
+                'reward': reward,
+                'done': done
+            })
+
             current_state = next_state
-        
+
+        # Compute returns (G_t)
+        G = 0  
+        gamma = 0.9  
+        for t in reversed(range(len(episodes_info_list))):
+            G = episodes_info_list[t]['reward'] + gamma * G  # Compute G_t
+            episodes_info_list[t]['G'] = G  
+
+        # Learn from episode
         every_visit_monte_carlo.learn(episodes_info_list)
-        episodes_info_list = []
+        
+        # Decay epsilon
         every_visit_monte_carlo.decay_epsilon()
-        
-        
-    print(every_visit_monte_carlo.q_table)
+    
+    test(every_visit_monte_carlo, env)
