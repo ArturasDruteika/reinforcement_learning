@@ -4,7 +4,7 @@ import rootutils
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 from learning.mdp_grid_world.grid_world_environment.actions import Action
-from learning.mdp_grid_world.temporal_difference_learning.agents.agent import Agent
+from learning.mdp_grid_world.model_free.temporal_difference_learning.agents.agent import Agent
 
 
 class SarsaAgent(Agent):
