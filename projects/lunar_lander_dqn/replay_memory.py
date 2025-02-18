@@ -1,54 +1,115 @@
 import random
+from typing import List, Tuple, Any, Optional
 
 
 class ReplayMemory:
-    
-    def __init__(self, capacity, batch_size, shuffle):
-        self.__capacity = capacity
-        self.__batch_size = batch_size
-        self.__shuffle = shuffle
-        self.__memory = []
-        self.__position = 0
-        
-    def __len__(self):
-        """Returns the current number of stored experiences."""
+    """
+    A replay memory buffer for storing and sampling experiences in reinforcement learning.
+
+    This class implements a circular buffer where new experiences replace the oldest ones
+    when the memory reaches its maximum capacity.
+
+    Attributes:
+        capacity (int): The maximum number of experiences the memory can store.
+        batch_size (int): The number of experiences to sample in a batch.
+        shuffle (bool): Whether to randomly shuffle the experiences during sampling.
+    """
+
+    def __init__(self, capacity: int, batch_size: int, shuffle: bool) -> None:
+        """
+        Initializes the ReplayMemory buffer.
+
+        Args:
+            capacity (int): The maximum number of experiences to store.
+            batch_size (int): The number of experiences to sample.
+            shuffle (bool): Whether to shuffle the experiences during sampling.
+        """
+        self.__capacity: int = capacity
+        self.__batch_size: int = batch_size
+        self.__shuffle: bool = shuffle
+        self.__memory: List[Optional[Tuple[Any, Any, float, Any, bool]]] = []
+        self.__position: int = 0
+
+    def __len__(self) -> int:
+        """
+        Returns the current number of stored experiences.
+
+        Returns:
+            int: The number of experiences in the memory.
+        """
         return len(self.__memory)
-        
+
     @property
-    def capacity(self):
+    def capacity(self) -> int:
+        """Returns the maximum capacity of the replay memory."""
         return self.__capacity
-    
+
     @property
-    def batch_size(self):
+    def batch_size(self) -> int:
+        """Returns the batch size used for sampling experiences."""
         return self.__batch_size
-    
-    @property
-    def shuffle(self):
-        return self.__shuffle
-    
-    @property
-    def memory(self):
-        return self.__memory
-    
-    @property
-    def position(self):
-        return self.__position
-    
+
     @batch_size.setter
-    def batch_size(self, value):
+    def batch_size(self, value: int) -> None:
+        """
+        Updates the batch size.
+
+        Args:
+            value (int): The new batch size.
+        """
         self.__batch_size = value
-        
+
+    @property
+    def shuffle(self) -> bool:
+        """Returns whether shuffling is enabled for sampling."""
+        return self.__shuffle
+
     @shuffle.setter
-    def shuffle(self, value):
+    def shuffle(self, value: bool) -> None:
+        """
+        Updates the shuffle setting.
+
+        Args:
+            value (bool): The new shuffle setting.
+        """
         self.__shuffle = value
-        
-    def add(self, state, action, reward, next_state, done):
+
+    @property
+    def memory(self) -> List[Optional[Tuple[Any, Any, float, Any, bool]]]:
+        """Returns the stored experiences in the replay memory."""
+        return self.__memory
+
+    @property
+    def position(self) -> int:
+        """Returns the current position in the circular buffer."""
+        return self.__position
+
+    def add(self, state: Any, action: Any, reward: float, next_state: Any, done: bool) -> None:
+        """
+        Adds an experience to the replay memory.
+
+        Args:
+            state (Any): The current state.
+            action (Any): The action taken.
+            reward (float): The reward received.
+            next_state (Any): The next state.
+            done (bool): Whether the episode has ended.
+        """
+        experience = (state, action, reward, next_state, done)
+
         if len(self.__memory) < self.__capacity:
-            self.__memory.append(None)
-        self.__memory[self.__position] = (state, action, reward, next_state, done)
-        self.__position = (self.__position + 1) % self.__capacity
-        
-    def sample(self):
+            self.__memory.append(None)  # Expand memory size if needed
+
+        self.__memory[self.__position] = experience
+        self.__position = (self.__position + 1) % self.__capacity  # Overwrite when full
+
+    def sample(self) -> List[Tuple[Any, Any, float, Any, bool]]:
+        """
+        Samples a batch of experiences from the memory.
+
+        Returns:
+            List[Tuple[Any, Any, float, Any, bool]]: A batch of sampled experiences.
+        """
         if len(self.__memory) == 0:
             return []  # Return empty list if no data available
 
