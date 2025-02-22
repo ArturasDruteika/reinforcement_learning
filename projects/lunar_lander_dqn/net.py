@@ -57,16 +57,60 @@ class LunarLanderConvNet(nn.Module):
         x = self.fc2(x)  # Output layer
 
         return x
+    
+    def save_model_data(self, filepath: str) -> None:
+        """
+        Saves the model parameters to a file.
+
+        Args:
+            filename (str): The name of the file to save the model parameters.
+        """
+        torch.save(self.state_dict(), filepath)
+        
+    def load_model_data(self, filepath: str) -> None:
+        """
+        Loads the model parameters from a file with safety restrictions.
+
+        Args:
+            filepath (str): The path of the file to load the model parameters.
+        """
+        self.load_state_dict(torch.load(filepath, weights_only=True))
 
 
-# Testing the model with a dummy input
+# Testing the model with additional tests for all functions
 if __name__ == '__main__':
+    # Instantiate and print the model architecture
     model = LunarLanderConvNet()
+    print("Initial model:")
     print(model)
 
-    # Dummy input: batch_size=1, channels=3, height=224, width=224
+    # Test forward function with dummy input: batch_size=1, channels=3, height=224, width=224
     sample_input = torch.randn(1, 3, 224, 224)
     output = model(sample_input)
-
+    print("\nInitial output from forward pass:")
     print(output)
     print(f"Output shape: {output.shape}")  # Expected: [1, 4]
+
+    # Test save_model_data function by saving the model's state_dict
+    model_filepath = "lunar_lander_conv_net.pth"
+    model.save_model_data(model_filepath)
+    print(f"\nModel parameters saved to '{model_filepath}'.")
+
+    # Modify the model's parameters to simulate training or accidental changes
+    with torch.no_grad():
+        for param in model.parameters():
+            param.add_(torch.randn_like(param))
+    modified_output = model(sample_input)
+    print("\nOutput after modifying model weights:")
+    print(modified_output)
+
+    # Test load_model_data function by reloading the saved parameters
+    model.load_model_data(model_filepath)
+    loaded_output = model(sample_input)
+    print("\nOutput after reloading saved model parameters:")
+    print(loaded_output)
+    print(f"Loaded output shape: {loaded_output.shape}")
+
+    # Compare the initial output and the output after reloading to ensure consistency
+    difference = torch.abs(output - loaded_output).sum().item()
+    print(f"\nTotal difference between initial and reloaded outputs: {difference:.6f}")
