@@ -3,67 +3,59 @@ from torch import nn
 from torch import Tensor
 
 
-class LunarLanderConvNet(nn.Module):
+class LunarLanderMLP(nn.Module):
     """
-    A Convolutional Neural Network (CNN) designed for processing images from the Lunar Lander environment.
+    A Multi-Layer Perceptron (MLP) designed for processing an 8-dimensional input from the Lunar Lander environment.
 
     The network consists of:
-    - Two convolutional layers with ReLU activation.
-    - Max-pooling layers to reduce spatial dimensions.
-    - Two fully connected layers for classification.
+    - Three fully connected layers with ReLU activation.
     - Outputs 4 neurons, corresponding to the possible actions in the discrete Lunar Lander environment.
 
-    Expected input shape: (batch_size, 3, 224, 224)
+    Expected input shape: (batch_size, 8)
     """
 
-    def __init__(self) -> None:
+    def __init__(self, input_size: int, output_size: int) -> None:
         """
-        Initializes the CNN model with convolutional, pooling, and fully connected layers.
+        Initializes the MLP model with fully connected layers and activation functions.
+        
+        Args:
+            input_size (int): Dimensionality of the input state.
+            output_size (int): Dimensionality of the output action space.
         """
-        super(LunarLanderConvNet, self).__init__()
-
-        # First Convolutional Layer: 3 input channels (RGB), 32 output channels, 3x3 kernel
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1)
-
-        # MaxPooling Layer (2x2) to downsample feature maps
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        super(LunarLanderMLP, self).__init__()
 
         # Fully Connected Layers
-        self.fc1 = nn.Linear(64 * 56 * 56, 128)  # Based on reduced feature map size
-        self.fc2 = nn.Linear(128, 4)  # 4 output neurons (discrete actions in Lunar Lander)
+        self.fc1 = nn.Linear(input_size, 64)
+        self.fc2 = nn.Linear(64, 128)
+        self.fc3 = nn.Linear(128, 64)
+        self.fc4 = nn.Linear(64, output_size)  # 4 output neurons (discrete actions in Lunar Lander)
 
         # Activation function
         self.relu = nn.ReLU()
+        self.softmax = nn.Softmax(dim=1)  # Softmax activation for discrete action selection
 
     def forward(self, x: Tensor) -> Tensor:
         """
-        Defines the forward pass of the CNN.
+        Defines the forward pass of the MLP.
 
         Args:
-            x (Tensor): Input tensor of shape (batch_size, 3, 224, 224).
+            x (Tensor): Input tensor of shape (batch_size, 8).
 
         Returns:
             Tensor: Output tensor of shape (batch_size, 4).
         """
-        x = self.relu(self.conv1(x))
-        x = self.pool(x)  # Reduce size to (112, 112)
-
-        x = self.relu(self.conv2(x))
-        x = self.pool(x)  # Reduce size to (56, 56)
-
-        x = x.view(x.size(0), -1)  # Flatten before fully connected layers
         x = self.relu(self.fc1(x))
-        x = self.fc2(x)  # Output layer
-
-        return x
+        x = self.relu(self.fc2(x))
+        x = self.relu(self.fc3(x))
+        x = self.fc4(x)  # Output layer
+        return self.softmax(x)  # Softmax activation for discrete action selection
     
     def save_model_data(self, filepath: str) -> None:
         """
         Saves the model parameters to a file.
 
         Args:
-            filename (str): The name of the file to save the model parameters.
+            filepath (str): The name of the file to save the model parameters.
         """
         torch.save(self.state_dict(), filepath)
         
@@ -74,25 +66,25 @@ class LunarLanderConvNet(nn.Module):
         Args:
             filepath (str): The path of the file to load the model parameters.
         """
-        self.load_state_dict(torch.load(filepath, weights_only=True))
+        self.load_state_dict(torch.load(filepath))
 
 
 # Testing the model with additional tests for all functions
 if __name__ == '__main__':
     # Instantiate and print the model architecture
-    model = LunarLanderConvNet()
+    model = LunarLanderMLP(8, 4)
     print("Initial model:")
     print(model)
 
-    # Test forward function with dummy input: batch_size=1, channels=3, height=224, width=224
-    sample_input = torch.randn(1, 3, 224, 224)
+    # Test forward function with dummy input: batch_size=1, input_size=8
+    sample_input = torch.randn(1, 8)
     output = model(sample_input)
     print("\nInitial output from forward pass:")
     print(output)
     print(f"Output shape: {output.shape}")  # Expected: [1, 4]
 
     # Test save_model_data function by saving the model's state_dict
-    model_filepath = "lunar_lander_conv_net.pth"
+    model_filepath = "lunar_lander_mlp.pth"
     model.save_model_data(model_filepath)
     print(f"\nModel parameters saved to '{model_filepath}'.")
 
