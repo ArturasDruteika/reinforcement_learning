@@ -100,6 +100,10 @@ class LunarLanderDQNAgent:
     @property
     def replay_memory(self):
         return self.__replay_memory
+    
+    @epsilon.setter
+    def epsilon(self, value: float) -> None:
+        self._epsilon = value
         
     def decay_epsilon(self) -> None:
         """
@@ -139,21 +143,17 @@ class LunarLanderDQNAgent:
     def load_target_model(self, filepath: str) -> None:
         self.__target_model.load_model_data(filepath)
         
-    # def train(self):
-    #     if self.__replay_memory.size < self.__batch_size:
-    #         return
+    def train(self):
+        if self.__replay_memory.size < self.__batch_size:
+            return
         
-    #     experiences = self.__replay_memory.sample()
-    #     (states, actions, rewards, next_states, dones) = zip(*experiences)
-    #     print(states)
-    #     exit()
+        states, actions, rewards, next_states, dones = self.__replay_memory.sample(torch_tensor=True)
         
-    #     q_values = self.__model(states).gather(1, actions.unsqueeze(-1)).squeeze(-1)
-    #     next_q_values = self.__target_model(next_states).max(1).values.detach()
-    #     expected_q_values = rewards + (self.__gamma * next_q_values * (1 - dones))
+        q_values = self.__model(states).gather(1, actions.unsqueeze(-1)).squeeze(-1)
+        next_q_values = self.__target_model(next_states).max(1).values.detach()
+        expected_q_values = rewards + (self.__gamma * next_q_values * (1 - dones.float()))
         
-    #     loss = self.__criterion(q_values, expected_q_values)
-        
-    #     self.__optimizer.zero_grad()
-    #     loss.backward()
-    #     self.__optimizer.step()
+        loss = self.__criterion(q_values, expected_q_values)
+        self.__optimizer.zero_grad()
+        loss.backward()
+        self.__optimizer.step()
