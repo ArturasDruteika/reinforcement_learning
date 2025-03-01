@@ -1,5 +1,6 @@
 import random
 import numpy as np
+import torch
 from typing import Any, Tuple, Optional
 
 
@@ -108,24 +109,46 @@ class ReplayMemory:
         self.__position = (self.__position + 1) % self.__capacity  # Overwrite when full
         self.__size = min(self.__size + 1, self.__capacity)  # Keep track of filled size
 
-    def sample(self) -> np.ndarray:
+    def sample(self, torch_tensor=False):
         """
         Samples a batch of experiences from the memory.
 
+        Args:
+            torch_tensor (bool): If True, returns experiences as PyTorch tensors.
+
         Returns:
-            np.ndarray: A batch of sampled experiences.
+            If torch_tensor=False:
+                np.ndarray: A batch of sampled experiences.
+            If torch_tensor=True:
+                Tuple of PyTorch tensors: (states, actions, rewards, next_states, dones)
         """
         if self.__size == 0:
             return np.array([], dtype=object)  # Return empty array if no data available
 
-        sample_size = min(self.__size, self.__batch_size)  # Avoid out-of-range error
+        sample_size = min(self.__size, self.__batch_size)  # Ensure valid sample size
 
         if self.__shuffle:
             indices = np.random.choice(self.__size, sample_size, replace=False)
         else:
             indices = np.arange(sample_size)
 
-        return self.__memory[indices]
+        batch = self.__memory[indices]  # Retrieve sampled batch
+
+        # If torch_tensor=False, return as a NumPy array (original behavior)
+        if not torch_tensor:
+            return batch
+
+        # Unpack batch into separate lists: (state, action, reward, next_state, done)
+        states, actions, rewards, next_states, dones = zip(*batch)
+
+        # Convert to PyTorch tensors
+        states = torch.stack(states)  # Assuming states are already torch tensors
+        actions = torch.tensor(actions, dtype=torch.long)  # Discrete actions → long tensor
+        rewards = torch.tensor(rewards, dtype=torch.float32)  # Rewards → float tensor
+        next_states = torch.stack(next_states)  # Assuming next_states are already torch tensors
+        dones = torch.tensor(dones, dtype=torch.bool)  # Boolean mask for episode end
+
+        return states, actions, rewards, next_states, dones
 
 
 if __name__ == '__main__':
