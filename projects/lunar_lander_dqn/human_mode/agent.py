@@ -1,27 +1,31 @@
 import torch
+from torch import nn
+from torch import optim
 import rootutils
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
-from projects.lunar_lander_dqn.net import LunarLanderConvNet
-from projects.lunar_lander_dqn.replay_memory import ReplayMemory
+from projects.lunar_lander_dqn.human_mode.net import LunarLanderMLP
+from projects.lunar_lander_dqn.human_mode.replay_memory import ReplayMemory
 
 
 class LunarLanderDQNAgent:
     
     def __init__(
         self, 
-        memory, 
-        learning_rate, 
-        gamma, 
-        epsilon, 
-        epsilon_decay, 
-        min_epsilon, 
-        memory_size,
-        shuffle,
-        batch_size
+        state_size,
+        action_space_size,
+        learning_rate = 1e-5, 
+        gamma = 0.99, 
+        epsilon = 1.0, 
+        epsilon_decay = 0.999, 
+        min_epsilon = 1e-5, 
+        memory_size = 1024,
+        shuffle = False,
+        batch_size = 32
     ):
-        self.__memory = memory
+        self.__state_size = state_size
+        self.__action_space_size = action_space_size
         self.__learning_rate = learning_rate
         self.__gamma = gamma
         self.__epsilon = epsilon
@@ -31,14 +35,20 @@ class LunarLanderDQNAgent:
         self.__shuffle = shuffle
         self.__batch_size = batch_size
 
-        self.__model = LunarLanderConvNet()
-        self.__target_model = LunarLanderConvNet()
+        self.__model = LunarLanderMLP(self.__state_size, self.__action_space_size)
+        self.__target_model = LunarLanderMLP(self.__state_size, self.__action_space_size)
+        self.__optimizer = optim.AdamW(self.__model.parameters(), lr=self.__learning_rate)
+        self.__criterion = nn.CrossEntropyLoss()
         self.__replay_memory = ReplayMemory(self.__memory_size, self.__batch_size, self.__shuffle)
         
     @property
-    def memory(self):
-        return self.__memory
+    def state_size(self):
+        return self.__state_size
     
+    @property
+    def action_space_size(self):
+        return self.__action_space_size
+            
     @property
     def learning_rate(self):
         return self.__learning_rate
@@ -78,6 +88,14 @@ class LunarLanderDQNAgent:
     @property
     def target_model(self):
         return self.__target_model
+    
+    @property
+    def optimizer(self):
+        return self.__optimizer
+    
+    @property
+    def criterion(self):
+        return self.__criterion
     
     @property
     def replay_memory(self):
@@ -120,3 +138,22 @@ class LunarLanderDQNAgent:
         
     def load_target_model(self, filepath: str) -> None:
         self.__target_model.load_model_data(filepath)
+        
+    # def train(self):
+    #     if self.__replay_memory.size < self.__batch_size:
+    #         return
+        
+    #     experiences = self.__replay_memory.sample()
+    #     (states, actions, rewards, next_states, dones) = zip(*experiences)
+    #     print(states)
+    #     exit()
+        
+    #     q_values = self.__model(states).gather(1, actions.unsqueeze(-1)).squeeze(-1)
+    #     next_q_values = self.__target_model(next_states).max(1).values.detach()
+    #     expected_q_values = rewards + (self.__gamma * next_q_values * (1 - dones))
+        
+    #     loss = self.__criterion(q_values, expected_q_values)
+        
+    #     self.__optimizer.zero_grad()
+    #     loss.backward()
+    #     self.__optimizer.step()
