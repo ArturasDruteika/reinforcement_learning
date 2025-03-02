@@ -1,37 +1,60 @@
 import torch
-from torch import nn
-from torch import Tensor
+from torch import nn, Tensor
 
 
 class LunarLanderMLP(nn.Module):
     """
-    A Multi-Layer Perceptron (MLP) designed for processing an 8-dimensional input from the Lunar Lander environment.
+    A Multi-Layer Perceptron (MLP) for Lunar Lander with:
+    - Leaky ReLU (instead of standard ReLU)
+    - Layer Normalization (better than BatchNorm in DQN)
+    - Dropout (to prevent overfitting)
 
-    The network consists of:
-    - Three fully connected layers with ReLU activation.
-    - Outputs 4 neurons, corresponding to the possible actions in the discrete Lunar Lander environment.
-
-    Expected input shape: (batch_size, 8)
+    This network processes an 8-dimensional state and outputs Q-values for 4 actions.
     """
 
-    def __init__(self, input_size: int, output_size: int) -> None:
+    def __init__(self, input_size: int, output_size: int, dropout_rate=0.2) -> None:
         """
-        Initializes the MLP model with fully connected layers and activation functions.
+        Initializes the MLP model with:
+            - Fully connected layers
+            - Layer Normalization
+            - Leaky ReLU activations
+            - Dropout
         
         Args:
-            input_size (int): Dimensionality of the input state.
-            output_size (int): Dimensionality of the output action space.
+            input_size (int): Dimensionality of the input state (8 for Lunar Lander).
+            output_size (int): Dimensionality of the output action space (4 discrete actions).
+            dropout_rate (float): Probability of dropout (default 0.2).
         """
-        super(LunarLanderMLP, self).__init__()
+        super().__init__()
 
-        # Fully Connected Layers
-        self.fc1 = nn.Linear(input_size, 64)
-        self.fc2 = nn.Linear(64, 128)
-        self.fc3 = nn.Linear(128, 64)
-        self.fc4 = nn.Linear(64, output_size)  # 4 output neurons (discrete actions in Lunar Lander)
+        # Define MLP layers using helper function
+        self.fc1 = self.__create_mlp_layer(input_size, 64, dropout_rate)
+        self.fc2 = self.__create_mlp_layer(64, 128, dropout_rate)
+        self.fc3 = self.__create_mlp_layer(128, 64, dropout_rate)
+        self.fc4 = nn.Linear(64, output_size)  # Output layer (raw Q-values)
 
-        # Activation function
-        self.relu = nn.ReLU()
+    def __create_mlp_layer(self, input_size: int, output_size: int, dropout_rate: float) -> nn.Sequential:
+        """
+        Creates a fully connected MLP layer with:
+        - Linear layer
+        - Layer Normalization
+        - Leaky ReLU activation
+        - Dropout
+
+        Args:
+            input_size (int): Number of input neurons.
+            output_size (int): Number of output neurons.
+            dropout_rate (float): Dropout probability.
+
+        Returns:
+            nn.Sequential: A sequential block of layers.
+        """
+        return nn.Sequential(
+            nn.Linear(input_size, output_size),
+            nn.LayerNorm(output_size),
+            nn.LeakyReLU(negative_slope=0.01),
+            nn.Dropout(p=dropout_rate)
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -43,65 +66,23 @@ class LunarLanderMLP(nn.Module):
         Returns:
             Tensor: Output tensor of shape (batch_size, 4).
         """
-        x = self.relu(self.fc1(x))
-        x = self.relu(self.fc2(x))
-        x = self.relu(self.fc3(x))
-        x = self.fc4(x)  # Output layer
-        return x
-    
+        x = self.fc1(x)
+        x = self.fc2(x)
+        x = self.fc3(x)
+        return self.fc4(x)  # Output raw Q-values (NO softmax!)
+
     def save_model_data(self, filepath: str) -> None:
-        """
-        Saves the model parameters to a file.
-
-        Args:
-            filepath (str): The name of the file to save the model parameters.
-        """
+        """Saves the model parameters to a file."""
         torch.save(self.state_dict(), filepath)
-        
-    def load_model_data(self, filepath: str) -> None:
-        """
-        Loads the model parameters from a file with safety restrictions.
 
-        Args:
-            filepath (str): The path of the file to load the model parameters.
-        """
+    def load_model_data(self, filepath: str) -> None:
+        """Loads the model parameters from a file."""
         self.load_state_dict(torch.load(filepath))
 
 
-# Testing the model with additional tests for all functions
+# Testing the model with a dummy input
 if __name__ == '__main__':
-    # Instantiate and print the model architecture
     model = LunarLanderMLP(8, 4)
-    print("Initial model:")
-    print(model)
-
-    # Test forward function with dummy input: batch_size=1, input_size=8
     sample_input = torch.randn(1, 8)
     output = model(sample_input)
-    print("\nInitial output from forward pass:")
-    print(output)
-    print(f"Output shape: {output.shape}")  # Expected: [1, 4]
-
-    # Test save_model_data function by saving the model's state_dict
-    model_filepath = "lunar_lander_mlp.pth"
-    model.save_model_data(model_filepath)
-    print(f"\nModel parameters saved to '{model_filepath}'.")
-
-    # Modify the model's parameters to simulate training or accidental changes
-    with torch.no_grad():
-        for param in model.parameters():
-            param.add_(torch.randn_like(param))
-    modified_output = model(sample_input)
-    print("\nOutput after modifying model weights:")
-    print(modified_output)
-
-    # Test load_model_data function by reloading the saved parameters
-    model.load_model_data(model_filepath)
-    loaded_output = model(sample_input)
-    print("\nOutput after reloading saved model parameters:")
-    print(loaded_output)
-    print(f"Loaded output shape: {loaded_output.shape}")
-
-    # Compare the initial output and the output after reloading to ensure consistency
-    difference = torch.abs(output - loaded_output).sum().item()
-    print(f"\nTotal difference between initial and reloaded outputs: {difference:.6f}")
+    print("Model Output:", output)
