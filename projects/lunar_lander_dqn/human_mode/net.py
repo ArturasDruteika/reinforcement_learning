@@ -32,7 +32,6 @@ class LunarLanderMLP(nn.Module):
 
         # Activation function
         self.relu = nn.ReLU()
-        self.softmax = nn.Softmax(dim=1)  # Softmax activation for discrete action selection
 
     def forward(self, x: Tensor) -> Tensor:
         """
@@ -48,7 +47,7 @@ class LunarLanderMLP(nn.Module):
         x = self.relu(self.fc2(x))
         x = self.relu(self.fc3(x))
         x = self.fc4(x)  # Output layer
-        return self.softmax(x)  # Softmax activation for discrete action selection
+        return x
     
     def save_model_data(self, filepath: str) -> None:
         """
