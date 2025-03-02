@@ -42,7 +42,7 @@ class LunarLanderTrainer:
                 )
 
                 # Train the agent
-                self.__agent.train()
+                loss = self.__agent.training_step()
 
                 # Update observation
                 observation = new_observation
@@ -55,11 +55,12 @@ class LunarLanderTrainer:
             if episode % self.__target_update_freq == 0:
                 print(f"\nUpdating target network at episode {episode}")
                 self.__agent.update_target_model()
+                print(loss)
 
             # Every `render_freq` episodes, visualize progress
             if episode % self.__render_freq == 0 and episode > 0:
                 self.visualize_agent(episode)
-            
+                
     def visualize_agent(self, episode):
         """
         Runs a test episode without exploration (epsilon = 0) to visualize agent performance.
@@ -76,9 +77,14 @@ class LunarLanderTrainer:
 
         # Disable exploration for visualization
         original_epsilon = self.__agent.epsilon
-        self.__agent.epsilon = 0  
+        self.__agent.epsilon = 0
+        
+        max_steps = 1_000
 
-        while not done:
+        for i in tqdm(range(max_steps)):
+            if done:
+                break
+            
             action = self.__agent.choose_action(torch.from_numpy(observation).float())  # Greedy action
             new_observation, reward, done, truncated, info = self.__visual_env.step(action)
 
