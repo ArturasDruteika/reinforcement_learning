@@ -1,7 +1,6 @@
 import torch
 from torch import nn, optim
 import rootutils
-from lightning import LightningModule
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
@@ -9,7 +8,7 @@ from projects.lunar_lander_dqn.human_mode.net import LunarLanderMLP
 from projects.lunar_lander_dqn.human_mode.replay_memory import ReplayMemory
 
 
-class LunarLanderDQNAgent(LightningModule):  # Now inherits from LightningModule
+class LunarLanderDQNAgent:  # Now inherits from LightningModule
     
     def __init__(
         self, 
@@ -47,8 +46,6 @@ class LunarLanderDQNAgent(LightningModule):  # Now inherits from LightningModule
         self.__criterion = nn.MSELoss()  # Correct loss function for Q-learning
         self.__replay_memory = ReplayMemory(self.__memory_size, self.__batch_size, self.__shuffle)
 
-        self.save_hyperparameters()
-        
     @property
     def state_size(self):
         return self.__state_size
@@ -181,7 +178,6 @@ class LunarLanderDQNAgent(LightningModule):  # Now inherits from LightningModule
 
         # Compute loss
         loss = self.__criterion(q_values, expected_q_values)
-        self.log("train_loss", loss, prog_bar=True)
 
         # Perform optimization step
         self.__optimizer.zero_grad()
@@ -189,12 +185,3 @@ class LunarLanderDQNAgent(LightningModule):  # Now inherits from LightningModule
         self.__optimizer.step()
 
         return loss
-
-    def configure_optimizers(self):
-        """Configures the optimizer for Lightning."""
-        return self.__optimizer
-
-    def on_train_epoch_end(self):
-        """Syncs target model weights every `sync_target_every` epochs."""
-        if self.current_epoch % self.__sync_target_every == 0:
-            self.update_target_model()
