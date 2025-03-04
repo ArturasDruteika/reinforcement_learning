@@ -9,6 +9,10 @@ rootutils.setup_root(__file__, indicator='.project-root', pythonpath=True)
 from projects.lunar_lander_dqn.human_mode.agent import LunarLanderDQNAgent
 
 
+# Maximum absolute reward value for normalization
+MAX_ABS_REWARD = 100
+
+
 class LunarLanderTrainer:
     
     def __init__(self, target_update_freq=100, render_freq=1000):
@@ -18,12 +22,13 @@ class LunarLanderTrainer:
         self.__target_update_freq = target_update_freq  # Frequency of target network update
         self.__render_freq = render_freq  # Frequency of rendering episodes
 
-    def train(self, episodes=100_000):
+    def train(self, episodes=100_000, save_weights_freq = 1000):
         for episode in tqdm(range(episodes)):
         
             # Reset the environment and get the initial observation
             observation, info = self.__env.reset()
             done = False
+            loss = None
 
             while not done:
                 # Select action using epsilon-greedy policy
@@ -31,6 +36,7 @@ class LunarLanderTrainer:
 
                 # Take a step in the environment
                 new_observation, reward, done, truncated, info = self.__env.step(action)
+                reward = reward / MAX_ABS_REWARD
 
                 # Store experience in the replay memory
                 self.__agent.store_memory(
@@ -41,8 +47,9 @@ class LunarLanderTrainer:
                     done
                 )
 
-                # Train the agent
-                loss = self.__agent.training_step()
+                if self.__agent.replay_memory.is_full:
+                    # Train the agent
+                    loss = self.__agent.training_step()
 
                 # Update observation
                 observation = new_observation
@@ -53,13 +60,18 @@ class LunarLanderTrainer:
 
             # Every `target_update_freq` episodes, update the target network
             if episode % self.__target_update_freq == 0:
-                print(f"\nUpdating target network at episode {episode}")
+                print(f"Updating target network at episode {episode}")
                 self.__agent.update_target_model()
                 print(loss)
 
             # Every `render_freq` episodes, visualize progress
             if episode % self.__render_freq == 0 and episode > 0:
                 self.visualize_agent(episode)
+                
+            # Every `render_freq` episodes, visualize progress
+            if episode % save_weights_freq == 0 and episode > 0:
+                self.__agent.save_model(f"projects/lunar_lander_dqn/human_mode/model_weights/lunar_lander_dqn_{episode}.pt")
+
                 
     def visualize_agent(self, episode):
         """
@@ -103,4 +115,4 @@ class LunarLanderTrainer:
 
 if __name__ == '__main__':
     trainer = LunarLanderTrainer(target_update_freq=100, render_freq=1000)
-    trainer.train(episodes=100_000)
+    trainer.train(episodes=900_000)

@@ -19,9 +19,9 @@ class LunarLanderDQNAgent:  # Now inherits from LightningModule
         epsilon=1.0, 
         epsilon_decay=0.999, 
         min_epsilon=1e-6, 
-        memory_size=1024,
+        memory_size=100_000,
         shuffle=False,
-        batch_size=32,
+        batch_size=256,
         sync_target_every=10,  # How often to update the target model
     ):
         super().__init__()
@@ -43,7 +43,7 @@ class LunarLanderDQNAgent:  # Now inherits from LightningModule
         self.__target_model.load_state_dict(self.__model.state_dict())  # Sync initially
         
         self.__optimizer = optim.AdamW(self.__model.parameters(), lr=self.__learning_rate)
-        self.__criterion = nn.MSELoss()  # Correct loss function for Q-learning
+        self.__criterion = nn.SmoothL1Loss()  # Correct loss function for Q-learning
         self.__replay_memory = ReplayMemory(self.__memory_size, self.__batch_size, self.__shuffle)
 
     @property
@@ -182,6 +182,7 @@ class LunarLanderDQNAgent:  # Now inherits from LightningModule
         # Perform optimization step
         self.__optimizer.zero_grad()
         loss.backward()
+        nn.utils.clip_grad_norm_(self.__model.parameters(), max_norm=1.0)  # Clip gradients
         self.__optimizer.step()
 
         return loss
