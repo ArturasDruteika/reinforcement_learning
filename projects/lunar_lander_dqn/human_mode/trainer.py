@@ -2,15 +2,10 @@ import gymnasium
 import torch
 import rootutils
 from tqdm import tqdm
-import time  # To slow down rendering for better visualization
 
 rootutils.setup_root(__file__, indicator='.project-root', pythonpath=True)
 
 from projects.lunar_lander_dqn.human_mode.agent import LunarLanderDQNAgent
-
-
-# Maximum absolute reward value for normalization
-MAX_ABS_REWARD = 100
 
 
 class LunarLanderTrainer:
@@ -36,7 +31,6 @@ class LunarLanderTrainer:
 
                 # Take a step in the environment
                 new_observation, reward, done, truncated, info = self.__env.step(action)
-                reward = reward / MAX_ABS_REWARD
 
                 # Store experience in the replay memory
                 self.__agent.store_memory(
@@ -47,9 +41,7 @@ class LunarLanderTrainer:
                     done
                 )
 
-                if self.__agent.replay_memory.is_full:
-                    # Train the agent
-                    loss = self.__agent.training_step()
+                loss = self.__agent.learn(return_loss=True)
 
                 # Update observation
                 observation = new_observation
@@ -58,20 +50,19 @@ class LunarLanderTrainer:
                 if done or truncated:
                     break
 
-            # Every `target_update_freq` episodes, update the target network
             if episode % self.__target_update_freq == 0:
-                print(f"Updating target network at episode {episode}")
-                self.__agent.update_target_model()
                 print(loss)
-
-            # Every `render_freq` episodes, visualize progress
-            if episode % self.__render_freq == 0 and episode > 0:
-                self.visualize_agent(episode)
                 
             # Every `render_freq` episodes, visualize progress
             if episode % save_weights_freq == 0 and episode > 0:
                 self.__agent.save_model(f"projects/lunar_lander_dqn/human_mode/model_weights/lunar_lander_dqn_{episode}.pt")
-
+                
+            if self.__agent.replay_memory.is_full:
+                self.__agent.decay_epsilon()
+                
+            # Every `render_freq` episodes, visualize progress
+            if episode % self.__render_freq == 0 and episode > 0:
+                self.visualize_agent(episode)
                 
     def visualize_agent(self, episode):
         """
@@ -92,6 +83,7 @@ class LunarLanderTrainer:
         self.__agent.epsilon = 0
         
         max_steps = 1_000
+        total_reward = 0
 
         for i in tqdm(range(max_steps)):
             if done:
@@ -99,9 +91,9 @@ class LunarLanderTrainer:
             
             action = self.__agent.choose_action(torch.from_numpy(observation).float())  # Greedy action
             new_observation, reward, done, truncated, info = self.__visual_env.step(action)
+            total_reward += reward
 
             self.__visual_env.render()  # Render the environment
-            time.sleep(0.01)  # Slow down rendering for better visualization
 
             observation = new_observation
             
@@ -111,6 +103,7 @@ class LunarLanderTrainer:
         # Properly close the visualization environment
         self.__visual_env.close()
         self.__visual_env = None  # Reset the environment so it's recreated when needed
+        print(total_reward)
 
 
 if __name__ == '__main__':

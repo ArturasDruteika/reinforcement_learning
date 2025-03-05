@@ -23,11 +23,9 @@ class ReplayMemory:
 
         Args:
             capacity (int): The maximum number of experiences to store.
-            batch_size (int): The number of experiences to sample.
             shuffle (bool): Whether to shuffle the experiences during sampling.
         """
         self.__capacity: int = capacity
-        self.__batch_size: int = batch_size
         self.__shuffle: bool = shuffle
         self.__memory: np.ndarray = np.empty((capacity,), dtype=object)
         self.__position: int = 0
@@ -47,21 +45,6 @@ class ReplayMemory:
     def capacity(self) -> int:
         """Returns the maximum capacity of the replay memory."""
         return self.__capacity
-
-    @property
-    def batch_size(self) -> int:
-        """Returns the batch size used for sampling experiences."""
-        return self.__batch_size
-
-    @batch_size.setter
-    def batch_size(self, value: int) -> None:
-        """
-        Updates the batch size.
-
-        Args:
-            value (int): The new batch size.
-        """
-        self.__batch_size = value
 
     @property
     def shuffle(self) -> bool:
@@ -116,11 +99,12 @@ class ReplayMemory:
         self.__size = min(self.__size + 1, self.__capacity)  # Keep track of filled size
         self.__is_full = (self.__size == self.__capacity)  # Update is_full status
 
-    def sample(self, torch_tensor=False):
+    def sample(self, batch_size, torch_tensor=False):
         """
         Samples a batch of experiences from the memory.
 
         Args:
+            batch_size (int): The number of experiences to sample.
             torch_tensor (bool): If True, returns experiences as PyTorch tensors.
 
         Returns:
@@ -132,7 +116,7 @@ class ReplayMemory:
         if self.__size == 0:
             return np.array([], dtype=object)  # Return empty array if no data available
 
-        sample_size = min(self.__size, self.__batch_size)  # Ensure valid sample size
+        sample_size = min(self.__size, batch_size)  # Ensure valid sample size
 
         if self.__shuffle:
             indices = np.random.choice(self.__size, sample_size, replace=False)
