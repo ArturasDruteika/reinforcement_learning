@@ -61,8 +61,8 @@ class LunarLanderDQNAgent:
         self.__target_model.load_state_dict(self.__model.state_dict())  # Sync initially
         self.__target_model.eval()
         
-        self.__optimizer = optim.AdamW(self.__model.parameters(), lr=self.__learning_rate)
-        self.__criterion = nn.SmoothL1Loss()  # Correct loss function for Q-learning
+        self.__optimizer = optim.Adam(self.__model.parameters(), lr=self.__learning_rate)
+        self.__criterion = nn.MSELoss()  # Correct loss function for Q-learning
         self.__replay_memory = ReplayMemory(self.__memory_size, self.__batch_size, self.__shuffle)
 
     def __compute_q_values_and_targets(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -206,6 +206,8 @@ class LunarLanderDQNAgent:
         Returns:
             int: Selected action index.
         """
+        self.__model.eval()
+        
         with torch.no_grad():
             if torch.rand(1).item() < self.__epsilon:
                 return torch.randint(0, self.__action_space_size, (1,)).item()
