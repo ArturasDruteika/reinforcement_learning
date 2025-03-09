@@ -23,9 +23,26 @@ class LunarLanderMLP(nn.Module):
         super().__init__()
 
         # Define MLP layers
-        self.fc1 = nn.Linear(input_size, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc1 = self.__create_layer(input_size, hidden_size)
+        self.fc2 = self.__create_layer(hidden_size, hidden_size)
         self.fc_out = nn.Linear(hidden_size, output_size)  # Output layer (raw Q-values)
+        
+    def __create_layer(self, input_size: int, output_size: int, negative_slope=0.1) -> nn.Sequential:
+        """
+        Create a single neural network layer with a linear transformation and LeakyReLU activation.
+
+        Args:
+            input_size (int): The number of input features to the layer.
+            output_size (int): The number of output features from the layer.
+            negative_slope (float, optional): The negative slope parameter for LeakyReLU. Defaults to 0.1.
+
+        Returns:
+            nn.Sequential: A sequential container of a Linear layer followed by a LeakyReLU activation.
+        """
+        return nn.Sequential(
+            nn.Linear(input_size, output_size),
+            nn.LeakyReLU(negative_slope=negative_slope)
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         """
