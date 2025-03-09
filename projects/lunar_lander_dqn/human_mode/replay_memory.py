@@ -17,7 +17,7 @@ class ReplayMemory:
         shuffle (bool): Whether to shuffle the experiences during sampling.
     """
 
-    def __init__(self, capacity: int, batch_size: int, shuffle: bool) -> None:
+    def __init__(self, capacity: int, shuffle: bool) -> None:
         """
         Initializes the ReplayMemory buffer with a NumPy array.
 
