@@ -21,7 +21,7 @@ class LunarLanderDQNAgent:
         epsilon_decay: float = 0.999,
         min_epsilon: float = 1e-6,
         memory_size: int = 100_000,
-        shuffle: bool = False,
+        shuffle: bool = True,
         batch_size: int = 128,
         sync_target_every: int = 10000,
     ) -> None:
@@ -63,7 +63,7 @@ class LunarLanderDQNAgent:
         
         self.__optimizer = optim.Adam(self.__model.parameters(), lr=self.__learning_rate)
         self.__criterion = nn.MSELoss()  # Correct loss function for Q-learning
-        self.__replay_memory = ReplayMemory(self.__memory_size, self.__batch_size, self.__shuffle)
+        self.__replay_memory = ReplayMemory(self.__memory_size, self.__shuffle)
 
     def __compute_q_values_and_targets(self) -> tuple[torch.Tensor, torch.Tensor]:
         """
@@ -284,14 +284,15 @@ class LunarLanderDQNAgent:
         Returns:
             torch.Tensor | None: Loss value if return_loss is True, otherwise None.
         """
+        
         # Ensure memory size is full
         if not self.__replay_memory.is_full:
             return
 
+        self.__model.train()
+        
         q_values, expected_q_values = self.__compute_q_values_and_targets()
-        # Compute loss
         loss = self.__criterion(q_values, expected_q_values)
-        # Perform optimization step
         self.__optimize(loss)
         
         self.__learning_step += 1
