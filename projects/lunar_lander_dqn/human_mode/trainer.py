@@ -27,7 +27,8 @@ class LunarLanderTrainer:
 
             while not done:
                 # Select action using epsilon-greedy policy
-                action = self.__agent.choose_action(torch.from_numpy(observation).float())
+                observation_tensor = torch.from_numpy(observation).float().unsqueeze(0)
+                action = self.__agent.choose_action(observation_tensor)
 
                 # Take a step in the environment
                 new_observation, reward, done, truncated, info = self.__env.step(action)
@@ -57,8 +58,7 @@ class LunarLanderTrainer:
             if episode % save_weights_freq == 0 and episode > 0:
                 self.__agent.save_model(f"projects/lunar_lander_dqn/human_mode/model_weights/lunar_lander_dqn_{episode}.pt")
                 
-            if self.__agent.replay_memory.is_full:
-                self.__agent.decay_epsilon()
+            self.__agent.decay_epsilon()
                 
             # Every `render_freq` episodes, visualize progress
             if episode % self.__render_freq == 0 and episode > 0:
@@ -108,4 +108,4 @@ class LunarLanderTrainer:
 
 if __name__ == '__main__':
     trainer = LunarLanderTrainer(target_update_freq=100, render_freq=1000)
-    trainer.train(episodes=900_000)
+    trainer.train(episodes=10_000)
