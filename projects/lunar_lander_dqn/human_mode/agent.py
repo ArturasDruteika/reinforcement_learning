@@ -19,11 +19,11 @@ class LunarLanderDQNAgent:
         gamma: float = 0.99,
         epsilon: float = 1.0,
         epsilon_decay: float = 0.999,
-        min_epsilon: float = 1e-6,
+        min_epsilon: float = 1e-4,
         memory_size: int = 100_000,
         shuffle: bool = True,
         batch_size: int = 128,
-        sync_target_every: int = 10000,
+        sync_target_every: int = 10000
     ) -> None:
         """
         Initializes the Lunar Lander DQN agent with networks, memory, and hyperparameters.
