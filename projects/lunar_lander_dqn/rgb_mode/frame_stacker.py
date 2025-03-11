@@ -1,21 +1,31 @@
-from typing import Deque
+from typing import Deque, Tuple
 from collections import deque
 
 import torch
 
 
+DEFAULT_STACK_LENGTH = 4
+DEFAULT_IMAGE_SHAPE = (1, 224, 224)  # Default grayscale shape: (channels, height, width)
+
+
 class FrameStacker:
     """
-    Stacks the last N frames and maintains a rolling buffer where only the last two frames are retained when full.
+    Stacks the last N grayscale frames along the channel dimension into a single tensor.
+    Maintains a rolling buffer where the oldest frame is removed when the stack is full.
+    No padding is applied; output shape reflects the current number of frames.
     """
 
-    def __init__(self, stack_length: int = 3):
+    def __init__(self, stack_length: int = DEFAULT_STACK_LENGTH, image_shape: Tuple[int, int, int] = DEFAULT_IMAGE_SHAPE):
         """
-        Initializes the frame stacker.
+        Initializes the frame stacker for grayscale frames.
         
-        :param stack_length: Number of frames to stack. Default is 3.
+        :param stack_length: Number of frames to stack. Default is 4.
+        :param image_shape: Tuple of (channels, height, width) for each frame. Default is (1, 224, 224).
         """
+        if not (len(image_shape) == 3 and image_shape[0] == 1):  # Ensure grayscale (1 channel)
+            raise ValueError("image_shape must be a tuple of (1, height, width) for grayscale frames")
         self.__stack_length: int = stack_length
+        self.__image_shape: Tuple[int, int, int] = image_shape
         self.__frames: Deque[torch.Tensor] = deque(maxlen=stack_length)
 
     @property
@@ -27,6 +37,15 @@ class FrameStacker:
         """
         return self.__stack_length
 
+    @property
+    def image_shape(self) -> Tuple[int, int, int]:
+        """
+        Returns the current image shape.
+        
+        :return: The shape (channels, height, width) of each frame.
+        """
+        return self.__image_shape
+
     def set_stack_length(self, new_stack_length: int) -> None:
         """
         Dynamically updates the number of stacked frames.
@@ -36,65 +55,109 @@ class FrameStacker:
         self.__stack_length = new_stack_length
         self.__frames = deque(list(self.__frames)[-new_stack_length:], maxlen=new_stack_length)
 
+    def set_image_shape(self, new_image_shape: Tuple[int, int, int]) -> None:
+        """
+        Dynamically updates the image shape, validating it remains grayscale.
+
+        :param new_image_shape: The new shape (channels, height, width) for each frame.
+        """
+        if not (len(new_image_shape) == 3 and new_image_shape[0] == 1):
+            raise ValueError("new_image_shape must be a tuple of (1, height, width) for grayscale frames")
+        self.__image_shape = new_image_shape
+        # Clear stack to avoid shape mismatch with existing frames
+        self.clear_stack()
+
     def clear_stack(self) -> None:
         """
-        Clears the current stack
+        Clears the current stack.
         """
         self.__frames.clear()
 
     def push(self, frame: torch.Tensor) -> torch.Tensor:
         """
-        Adds a new frame to the stack while ensuring that at most stack_length frames are kept.
-        If the stack exceeds the limit, the last two frames are retained, and the new frame is appended.
+        Adds a new grayscale frame to the stack while ensuring that at most stack_length frames are kept.
+        When the stack is full, the oldest frame is removed, and the new frame is appended.
+        Validates the frame shape matches the expected image_shape.
 
-        :param frame: The new frame (Tensor shape: (3, 224, 224)).
-        :return: Stacked frames as a Tensor of shape (min(current size, stack_length), 3, 224, 224).
+        :param frame: The new grayscale frame.
+        :return: Stacked frames as a Tensor of shape (current_stack_size, height, width).
+        :raises ValueError: If the frame shape does not match image_shape.
         """
-        if len(self.__frames) >= self.__stack_length:  # If at capacity, keep only last 2
-            self.__frames = deque(list(self.__frames)[-2:], maxlen=self.__stack_length)
-
-        self.__frames.append(frame)
+        if frame.shape != self.__image_shape:
+            raise ValueError(f"Frame shape {frame.shape} does not match expected shape {self.__image_shape}")
+        self.__frames.append(frame)  # deque automatically removes oldest frame if full
         return self.get_stacked_frames()
 
     def get_stacked_frames(self) -> torch.Tensor:
         """
-        Returns the stacked frames as a batch tensor.
+        Returns the stacked frames as a single tensor with frames stacked along the channel dimension.
 
-        :return: Tensor of shape (current_stack_size, 3, 224, 224).
+        :return: Tensor of shape (current_stack_size, height, width) based on image_shape.
         """
-        return torch.stack(list(self.__frames), dim=0)
+        if not self.__frames:
+            return torch.zeros((0,) + self.__image_shape[1:])  # Shape: (0, height, width)
+        return torch.cat(list(self.__frames), dim=0)  # Shape: (current_size, height, width)
+
+    def is_full(self) -> bool:
+        """
+        Checks if the stack is full.
+        
+        :return: True if the stack is full, False otherwise.
+        """
+        return len(self.__frames) == self.__stack_length
 
 
 if __name__ == '__main__':
-    def generate_fake_frame() -> torch.Tensor:
+    def generate_fake_frame(height: int = 224, width: int = 224) -> torch.Tensor:
         """
-        Generates a random frame tensor simulating an image.
+        Generates a random grayscale frame tensor simulating an image.
         
-        :return: A tensor with shape (3, 224, 224) with random pixel values.
+        :param height: Height of the frame.
+        :param width: Width of the frame.
+        :return: A tensor with shape (1, height, width) with random pixel values.
         """
-        return torch.rand((3, 224, 224))
+        return torch.rand((1, height, width))  # Grayscale: single channel
 
-    # Initialize FrameStacker with stack_length = 3
-    stacker = FrameStacker(stack_length=3)
-
-    print("Pushing frame 1")
+    # Test with default settings (224 x 224)
+    stacker = FrameStacker(stack_length=4)
+    print("Pushing frame 1 (default 224x224)")
     stacker.push(generate_fake_frame())
-    print("Current stacked shape:", stacker.get_stacked_frames().shape)  # (1, 3, 224, 224)
+    print("Current stacked shape:", stacker.get_stacked_frames().shape)  # (1, 224, 224)
 
     print("Pushing frame 2")
     stacker.push(generate_fake_frame())
-    print("Current stacked shape:", stacker.get_stacked_frames().shape)  # (2, 3, 224, 224)
+    print("Current stacked shape:", stacker.get_stacked_frames().shape)  # (2, 224, 224)
 
     print("Pushing frame 3")
     stacker.push(generate_fake_frame())
-    print("Current stacked shape:", stacker.get_stacked_frames().shape)  # (3, 3, 224, 224)
+    print("Current stacked shape:", stacker.get_stacked_frames().shape)  # (3, 224, 224)
 
-    print("Pushing frame 4 (should keep last 2 and add new one)")
+    print("Pushing frame 4")
     stacker.push(generate_fake_frame())
-    print("Current stacked shape:", stacker.get_stacked_frames().shape)  # (3, 3, 224, 224)
-    
-    stacker.clear_stack()
+    print("Current stacked shape:", stacker.get_stacked_frames().shape)  # (4, 224, 224)
 
-    print("Pushing frame 5 into a new stack")
+    print("Pushing frame 5 (should remove oldest and keep 4)")
     stacker.push(generate_fake_frame())
-    print("Current stacked shape:", stacker.get_stacked_frames().shape)  # (3, 3, 224, 224)
+    print("Current stacked shape:", stacker.get_stacked_frames().shape)  # (4, 224, 224)
+
+    # Test with custom image shape (84 x 84)
+    stacker_custom = FrameStacker(stack_length=4, image_shape=(1, 84, 84))
+    print("\nPushing frame 1 (custom 84x84)")
+    stacker_custom.push(generate_fake_frame(84, 84))
+    print("Current stacked shape:", stacker_custom.get_stacked_frames().shape)  # (1, 84, 84)
+
+    print("Pushing frame 2")
+    stacker_custom.push(generate_fake_frame(84, 84))
+    print("Current stacked shape:", stacker_custom.get_stacked_frames().shape)  # (2, 84, 84)
+
+    print("Pushing frame 3")
+    stacker_custom.push(generate_fake_frame(84, 84))
+    print("Current stacked shape:", stacker_custom.get_stacked_frames().shape)  # (3, 84, 84)
+
+    print("Pushing frame 4")
+    stacker_custom.push(generate_fake_frame(84, 84))
+    print("Current stacked shape:", stacker_custom.get_stacked_frames().shape)  # (4, 84, 84)
+
+    print("Pushing frame 5 (should remove oldest and keep 4)")
+    stacker_custom.push(generate_fake_frame(84, 84))
+    print("Current stacked shape:", stacker_custom.get_stacked_frames().shape)  # (4, 84, 84)
