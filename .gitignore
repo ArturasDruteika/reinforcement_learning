@@ -50,3 +50,6 @@ venv/
 
 # VS-Code .history files
 .history/
+
+# ML model weights
+*.pt
