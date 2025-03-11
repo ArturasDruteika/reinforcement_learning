@@ -4,8 +4,8 @@ import rootutils
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
-from projects.lunar_lander_dqn.human_mode.net import LunarLanderMLP
-from projects.lunar_lander_dqn.human_mode.replay_memory import ReplayMemory
+from projects.lunar_lander_dqn.state_vector.net import LunarLanderMLP
+from projects.lunar_lander_dqn.state_vector.replay_memory import ReplayMemory
 
 
 class LunarLanderDQNAgent:
@@ -62,7 +62,7 @@ class LunarLanderDQNAgent:
         self.__target_model.eval()
         
         self.__optimizer = optim.Adam(self.__model.parameters(), lr=self.__learning_rate)
-        self.__criterion = nn.MSELoss()  # Correct loss function for Q-learning
+        self.__criterion = nn.SmoothL1Loss()
         self.__replay_memory = ReplayMemory(self.__memory_size, self.__shuffle)
 
     def __compute_q_values_and_targets(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -99,87 +99,87 @@ class LunarLanderDQNAgent:
     
     @property
     def state_size(self) -> int:
-        """int: Size of the state space."""
+        """Size of the state space."""
         return self.__state_size
     
     @property
     def action_space_size(self) -> int:
-        """int: Number of possible actions."""
+        """Number of possible actions."""
         return self.__action_space_size
     
     @property
     def learning_rate(self) -> float:
-        """float: Learning rate for the optimizer."""
+        """Learning rate for the optimizer."""
         return self.__learning_rate
     
     @property
     def gamma(self) -> float:
-        """float: Discount factor for future rewards."""
+        """Discount factor for future rewards."""
         return self.__gamma
     
     @property
     def epsilon(self) -> float:
-        """float: Current exploration probability."""
+        """Current exploration probability."""
         return self.__epsilon
     
     @property
     def epsilon_decay(self) -> float:
-        """float: Decay rate for epsilon."""
+        """Decay rate for epsilon."""
         return self.__epsilon_decay
     
     @property
     def min_epsilon(self) -> float:
-        """float: Minimum epsilon value."""
+        """Minimum epsilon value."""
         return self.__min_epsilon
     
     @property
     def memory_size(self) -> int:
-        """int: Capacity of the replay memory."""
+        """Capacity of the replay memory."""
         return self.__memory_size
     
     @property
     def shuffle(self) -> bool:
-        """bool: Whether replay memory samples are shuffled."""
+        """Whether replay memory samples are shuffled."""
         return self.__shuffle
     
     @property
     def batch_size(self) -> int:
-        """int: Number of transitions sampled per training step."""
+        """Number of transitions sampled per training step."""
         return self.__batch_size
     
     @property
     def sync_target_every(self) -> int:
-        """int: Steps between target network updates."""
+        """Steps between target network updates."""
         return self.__sync_target_every
     
     @property
     def learning_step(self) -> int:
-        """int: Number of training steps performed."""
+        """Number of training steps performed."""
         return self.__learning_step
 
     @property
     def model(self) -> LunarLanderMLP:
-        """LunarLanderMLP: Main Q-network model."""
+        """Main Q-network model."""
         return self.__model
 
     @property
     def target_model(self) -> LunarLanderMLP:
-        """LunarLanderMLP: Target Q-network model."""
+        """Target Q-network model."""
         return self.__target_model
 
     @property
     def optimizer(self) -> optim.AdamW:
-        """optim.AdamW: Optimizer for the main model."""
+        """Optimizer for the main model."""
         return self.__optimizer
 
     @property
     def criterion(self) -> nn.SmoothL1Loss:
-        """nn.SmoothL1Loss: Loss function for Q-learning."""
+        """Loss function for Q-learning."""
         return self.__criterion
 
     @property
     def replay_memory(self) -> ReplayMemory:
-        """ReplayMemory: Experience replay buffer."""
+        """Experience replay buffer."""
         return self.__replay_memory
 
     @epsilon.setter

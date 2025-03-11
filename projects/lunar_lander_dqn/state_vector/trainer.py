@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 rootutils.setup_root(__file__, indicator='.project-root', pythonpath=True)
 
-from projects.lunar_lander_dqn.human_mode.agent import LunarLanderDQNAgent
+from projects.lunar_lander_dqn.state_vector.agent import LunarLanderDQNAgent
 
 
 class LunarLanderTrainer:
@@ -56,7 +56,7 @@ class LunarLanderTrainer:
                 
             # Every `render_freq` episodes, visualize progress
             if episode % save_weights_freq == 0 and episode > 0:
-                self.__agent.save_model(f"projects/lunar_lander_dqn/human_mode/model_weights/lunar_lander_dqn_{episode}.pt")
+                self.__agent.save_model(f'projects/lunar_lander_dqn/state_vector/model_weights/lunar_lander_dqn_{episode}.pt')
                 
             self.__agent.decay_epsilon()
                 
