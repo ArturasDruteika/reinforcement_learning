@@ -3,7 +3,7 @@ from torch import nn
 from torch import Tensor
 
 
-class LunarLanderConvNet(nn.Module):
+class LunarLanderCNN(nn.Module):
     """
     A Convolutional Neural Network (CNN) designed for processing images from the Lunar Lander environment.
 
@@ -16,11 +16,14 @@ class LunarLanderConvNet(nn.Module):
     Expected input shape: (batch_size, 3, 224, 224)
     """
 
-    def __init__(self) -> None:
+    def __init__(self, output_size: int = 4) -> None:
         """
         Initializes the CNN model with convolutional, pooling, and fully connected layers.
+        
+        Args:
+            output_size (int): Output neurons count.
         """
-        super(LunarLanderConvNet, self).__init__()
+        super(LunarLanderCNN, self).__init__()
 
         # First Convolutional Layer: 3 input channels (RGB), 32 output channels, 3x3 kernel
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, stride=1, padding=1)
@@ -31,7 +34,7 @@ class LunarLanderConvNet(nn.Module):
 
         # Fully Connected Layers
         self.fc1 = nn.Linear(64 * 56 * 56, 128)  # Based on reduced feature map size
-        self.fc2 = nn.Linear(128, 4)  # 4 output neurons (discrete actions in Lunar Lander)
+        self.fc2 = nn.Linear(128, output_size)
 
         # Activation function
         self.relu = nn.ReLU()
@@ -80,7 +83,7 @@ class LunarLanderConvNet(nn.Module):
 # Testing the model with additional tests for all functions
 if __name__ == '__main__':
     # Instantiate and print the model architecture
-    model = LunarLanderConvNet()
+    model = LunarLanderCNN()
     print("Initial model:")
     print(model)
 
