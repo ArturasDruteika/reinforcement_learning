@@ -6,11 +6,11 @@ from PIL import Image
 class FramePreprocessor:
     """Preprocesses frames by resizing, converting to tensors, and applying ImageNet normalization."""
 
-    def __init__(self):
+    def __init__(self, resize_shape = (224, 224)):
         self.__transform = transforms.Compose([
-            transforms.Resize((224, 224)),  # Resize to fit ResNet or similar CNNs
+            transforms.Resize(resize_shape),  # Resize to fit ResNet or similar CNNs
             transforms.ToTensor(),  # Convert to PyTorch Tensor (float32)
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # ImageNet normalization
+            transforms.Normalize(mean=[0.5], std=[0.5])  # ImageNet normalization
         ])
 
     def preprocess(self, frame):
