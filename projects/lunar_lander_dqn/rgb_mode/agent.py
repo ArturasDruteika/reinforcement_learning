@@ -19,11 +19,11 @@ class LunarLanderDQNAgent:
         epsilon = 1.0, 
         epsilon_decay = 0.999, 
         min_epsilon = 1e-4, 
-        memory_size = 100_000,
+        memory_size = 10_000,
         shuffle = True,
-        batch_size = 128,
-        sync_target_every: int = 10_000
-        
+        batch_size = 64,
+        sync_target_every: int = 10_000,
+        device = None
     ):
         self.__action_state_size = action_state_size
         self.__learning_rate = learning_rate
@@ -35,9 +35,13 @@ class LunarLanderDQNAgent:
         self.__shuffle = shuffle
         self.__batch_size = batch_size
         self.__sync_target_every: int = sync_target_every
+        if device is not None:
+            self.__device = device
+        else:
+            self.__device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        self.__model = LunarLanderCNN(self.__action_state_size)
-        self.__target_model = LunarLanderCNN(self.__action_state_size)
+        self.__model = LunarLanderCNN(self.__action_state_size).to(self.__device)
+        self.__target_model = LunarLanderCNN(self.__action_state_size).to(self.__device)
         self.__target_model.load_state_dict(self.__model.state_dict())
         self.__target_model.eval()
         
@@ -123,7 +127,7 @@ class LunarLanderDQNAgent:
             if torch.rand(1).item() < self.epsilon:
                 return torch.randint(0, 4, (1,)).item()
             else:
-                return torch.argmax(self.model(state)).item()
+                return torch.argmax(self.model(state.to(self.__device))).item()
             
     def store_memory(
         self, 
@@ -152,7 +156,7 @@ class LunarLanderDQNAgent:
         
     def learn(self, return_loss = False):
         if not self.__replay_memory.is_full:
-            return
+            return None
         
         self.__model.train()
         
@@ -161,7 +165,14 @@ class LunarLanderDQNAgent:
             torch_tensor=True
         )
         
-        q_values = self.__model(states).gatcher(1, actions.unsqueeze(-1)).squezze(-1)
+        states = states.to(self.__device)
+        actions = actions.to(self.__device)
+        rewards = rewards.to(self.__device)
+        next_states = next_states.to(self.__device)
+        dones = dones.to(self.__device)
+        
+        q_values = self.__model(states).gather(1, actions.unsqueeze(-1)).squeeze(-1)
+        
         with torch.no_grad():
             next_q_values = self.__target_model(next_states).max(dim=1).values
             expected_q_values = rewards + self.__gamma * next_q_values * (1 - dones.float())
@@ -172,9 +183,9 @@ class LunarLanderDQNAgent:
         loss.backward()
         self.__optimizer.step()
         
-        self.__learning_step += 1
+        self.__learning_rate += 1
         
-        if self.__learning_step % self.__sync_target_every == 0:
+        if self.__learning_rate % self.__sync_target_every == 0:
             self.update_target_model()
         
         if return_loss:
