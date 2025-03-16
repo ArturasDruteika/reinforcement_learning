@@ -25,7 +25,7 @@ class LunarLanderTrainer:
             done = False
             loss = None
 
-            while not done:
+            while not done or truncated:
                 # Select action using epsilon-greedy policy
                 observation_tensor = torch.from_numpy(observation).float().unsqueeze(0)
                 action = self.__agent.choose_action(observation_tensor)
