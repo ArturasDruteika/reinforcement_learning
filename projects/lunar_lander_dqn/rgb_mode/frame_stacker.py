@@ -80,13 +80,11 @@ class FrameStacker:
         Validates the frame shape matches the expected image_shape.
 
         :param frame: The new grayscale frame.
-        :return: Stacked frames as a Tensor of shape (current_stack_size, height, width).
         :raises ValueError: If the frame shape does not match image_shape.
         """
         if frame.shape != self.__image_shape:
             raise ValueError(f"Frame shape {frame.shape} does not match expected shape {self.__image_shape}")
         self.__frames.append(frame)  # deque automatically removes oldest frame if full
-        return self.get_stacked_frames()
 
     def get_stacked_frames(self) -> torch.Tensor:
         """
