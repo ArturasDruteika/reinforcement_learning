@@ -33,8 +33,9 @@ class LunarLanderCNN(nn.Module):
             raise ValueError(f"Input height ({input_height}) and width ({input_width}) must be divisible by 32.")
 
         # First Convolutional Layer
-        self.conv1: nn.Conv2d = nn.Conv2d(in_channels=input_channels, out_channels=32, kernel_size=3, stride=1, padding=1)
-        self.conv2: nn.Conv2d = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1)
+        self.conv1: nn.Conv2d = nn.Conv2d(in_channels=input_channels, out_channels=16, kernel_size=3, stride=1, padding=1)
+        self.conv2: nn.Conv2d = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1)
+        self.conv3: nn.Conv2d = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1)
 
         # MaxPooling Layer (2x2)
         self.pool: nn.MaxPool2d = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -58,7 +59,7 @@ class LunarLanderCNN(nn.Module):
         Returns:
             int: The size of the flattened feature map.
         """
-        return 64 * (self.__input_height // 4) * (self.__input_width // 4)
+        return 64 * (self.__input_height // 8) * (self.__input_width // 8)
 
     @property
     def input_channels(self) -> int:
@@ -104,6 +105,9 @@ class LunarLanderCNN(nn.Module):
         x = self.pool(x)  # Reduce size by 2
 
         x = self.relu(self.conv2(x))
+        x = self.pool(x)  # Reduce size by 2 again
+        
+        x = self.relu(self.conv3(x))
         x = self.pool(x)  # Reduce size by 2 again
 
         x = x.view(x.size(0), -1)  # Flatten
