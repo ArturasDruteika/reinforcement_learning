@@ -14,7 +14,7 @@ class LunarLanderDQNAgent:
     def __init__(
         self,
         action_state_size,
-        learning_rate = 1e-5, 
+        learning_rate = 1e-4, 
         gamma = 0.99, 
         epsilon = 1.0, 
         epsilon_decay = 0.999, 
@@ -40,8 +40,16 @@ class LunarLanderDQNAgent:
         else:
             self.__device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        self.__model = LunarLanderCNN(self.__action_state_size).to(self.__device)
-        self.__target_model = LunarLanderCNN(self.__action_state_size).to(self.__device)
+        self.__model = LunarLanderCNN(
+            input_channels=4, 
+            input_height=96, 
+            input_width=96
+        ).to(self.__device)
+        self.__target_model = LunarLanderCNN(
+            input_channels=4, 
+            input_height=96, 
+            input_width=96
+        ).to(self.__device)
         self.__target_model.load_state_dict(self.__model.state_dict())
         self.__target_model.eval()
         
@@ -118,7 +126,7 @@ class LunarLanderDQNAgent:
         """
         Decreases the epsilon value for exploration.
         """
-        self._epsilon = max(self._epsilon * self._epsilon_decay, self._min_epsilon)
+        self.__epsilon = max(self.__epsilon * self.__epsilon_decay, self.__min_epsilon)
         
     def choose_action(self, state: torch.tensor) -> int:
         self.__model.eval()
@@ -127,7 +135,7 @@ class LunarLanderDQNAgent:
             if torch.rand(1).item() < self.epsilon:
                 return torch.randint(0, 4, (1,)).item()
             else:
-                return torch.argmax(self.model(state.to(self.__device))).item()
+                return torch.argmax(self.model(state.unsqueeze(0).to(self.__device))).item()
             
     def store_memory(
         self, 
