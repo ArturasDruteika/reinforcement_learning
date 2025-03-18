@@ -35,6 +35,7 @@ class LunarLanderDQNAgent:
         self.__shuffle = shuffle
         self.__batch_size = batch_size
         self.__sync_target_every: int = sync_target_every
+        self.__learning_step = 0
         if device is not None:
             self.__device = device
         else:
@@ -103,6 +104,10 @@ class LunarLanderDQNAgent:
         return self.__sync_target_every
     
     @property
+    def learning_step(self):
+        return self.__learning_step
+    
+    @property
     def model(self):
         return self.__model
     
@@ -131,7 +136,7 @@ class LunarLanderDQNAgent:
     def choose_action(self, state: torch.tensor) -> int:
         self.__model.eval()
         
-        with torch.no_grad():
+        with torch.inference_mode():
             if torch.rand(1).item() < self.epsilon:
                 return torch.randint(0, 4, (1,)).item()
             else:
@@ -149,6 +154,7 @@ class LunarLanderDQNAgent:
         
     def update_target_model(self) -> None:
         self.__target_model.load_state_dict(self.__model.state_dict())
+        print("Target model updated.")
         
     def save_model(self, filepath: str) -> None:
         self.__model.save_model_data(filepath)
@@ -191,9 +197,9 @@ class LunarLanderDQNAgent:
         loss.backward()
         self.__optimizer.step()
         
-        self.__learning_rate += 1
+        self.__learning_step += 1
         
-        if self.__learning_rate % self.__sync_target_every == 0:
+        if self.__learning_step % self.__sync_target_every == 0:
             self.update_target_model()
         
         if return_loss:
