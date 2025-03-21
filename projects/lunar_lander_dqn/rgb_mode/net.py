@@ -33,67 +33,77 @@ class LunarLanderCNN(nn.Module):
             raise ValueError(f"Input height ({input_height}) and width ({input_width}) must be divisible by 32.")
 
         # First Convolutional Layer
-        self.conv1: nn.Conv2d = nn.Conv2d(in_channels=input_channels, out_channels=16, kernel_size=3, stride=1, padding=1)
-        self.conv2: nn.Conv2d = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1)
-        self.conv3: nn.Conv2d = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1)
+        self.conv_1 = self.__create_conv_layer(input_channels, 16, 3, 1, 1)
+        self.conv_2 = self.__create_conv_layer(16, 32, 3, 1, 1)
+        self.conv_3 = self.__create_conv_layer(32, 64, 3, 1, 1)
 
-        # MaxPooling Layer (2x2)
-        self.pool: nn.MaxPool2d = nn.MaxPool2d(kernel_size=2, stride=2)
-
-        # Fully Connected Layers
-        self.fc1: nn.Linear = nn.Linear(self.__calculate_flat_size(), 128)
-        self.fc2: nn.Linear = nn.Linear(128, output_size)
-
-        # Activation function
-        self.relu: nn.ReLU = nn.ReLU()
-
-    def __calculate_flat_size(self) -> int:
+        # Fully Connected Layers (updated for global average pooling)
+        self.mlp = self.__create_mlp_layer(self.__calculate_flat_size(), 64, 256)
+        self.fc_out: nn.Linear = nn.Linear(64, output_size)
+        
+    def __create_conv_layer(self, in_channels: int, out_channels: int, kernel_size: int, stride: int, padding: int) -> nn.Conv2d:
         """
-        Calculates the flattened size of the feature map after convolutional and pooling layers.
+        Create a single convolutional layer with a LeakyReLU activation.
 
-        The size is determined as follows:
-        - After conv1 + pool: (H/2, W/2)
-        - After conv2 + pool: (H/4, W/4)
-        - Flattened size: 64 * (H/4) * (W/4)
+        Args:
+            in_channels (int): Number of input channels.
+            out_channels (int): Number of output channels.
+            kernel_size (int): Size of the convolutional kernel.
+            stride (int): Stride for the convolution operation.
+            padding (int): Padding to apply around the input.
 
         Returns:
-            int: The size of the flattened feature map.
+            nn.Conv2d: Convolutional layer with LeakyReLU activation.
         """
+        return nn.Sequential(
+            nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=out_channels, 
+                kernel_size=kernel_size, 
+                stride=stride, 
+                padding=padding
+            ),
+            nn.LeakyReLU(),
+            nn.BatchNorm2d(out_channels),
+            nn.MaxPool2d(kernel_size=2, stride=2)
+        )
+    
+    def __create_mlp_layer(self, in_features: int, out_features: int, hidden_dim: int) -> nn.Linear:
+        """
+        Create a single fully connected layer with a LeakyReLU activation.
+
+        Args:
+            in_features (int): Number of input features.
+            out_features (int): Number of output features.
+
+        Returns:
+            nn.Linear: Fully connected layer with LeakyReLU activation.
+        """
+        return nn.Sequential(
+            nn.Linear(in_features, hidden_dim),
+            nn.LeakyReLU(),
+            nn.Linear(hidden_dim, out_features),
+            nn.LeakyReLU()
+        )
+        
+    def __calculate_flat_size(self):
         return 64 * (self.__input_height // 8) * (self.__input_width // 8)
 
     @property
     def input_channels(self) -> int:
-        """
-        Gets the number of input channels.
-
-        Returns:
-            int: The number of input channels.
-        """
         return self.__input_channels
 
     @property
     def input_height(self) -> int:
-        """
-        Gets the height of the input image.
-
-        Returns:
-            int: The input height.
-        """
         return self.__input_height
 
     @property
     def input_width(self) -> int:
-        """
-        Gets the width of the input image.
-
-        Returns:
-            int: The input width.
-        """
         return self.__input_width
 
     def forward(self, x: Tensor) -> Tensor:
         """
-        Defines the forward pass of the CNN.
+        Defines the forward pass of the CNN with global average pooling.
 
         Args:
             x (Tensor): Input tensor of shape (batch_size, input_channels, input_height, input_width).
@@ -101,41 +111,21 @@ class LunarLanderCNN(nn.Module):
         Returns:
             Tensor: Output tensor of shape (batch_size, output_size) containing Q-values for each action.
         """
-        x = self.relu(self.conv1(x))
-        x = self.pool(x)  # Reduce size by 2
-
-        x = self.relu(self.conv2(x))
-        x = self.pool(x)  # Reduce size by 2 again
+        x = self.conv_1(x)
+        x = self.conv_2(x)
+        x = self.conv_3(x)
         
-        x = self.relu(self.conv3(x))
-        x = self.pool(x)  # Reduce size by 2 again
+        x = x.view(x.size(0), -1)
 
-        x = x.view(x.size(0), -1)  # Flatten
-        x = self.relu(self.fc1(x))
-        x = self.fc2(x)  # Output layer
+        x = self.mlp(x)
+        x = self.fc_out(x)
 
         return x
 
     def save_model_data(self, filepath: str) -> None:
-        """
-        Saves the model parameters to a file.
-
-        Args:
-            filepath (str): The path to the file where model parameters will be saved.
-        """
         torch.save(self.state_dict(), filepath)
 
     def load_model_data(self, filepath: str) -> None:
-        """
-        Loads the model parameters from a file with safety restrictions.
-
-        Args:
-            filepath (str): The path to the file from which to load the model parameters.
-
-        Raises:
-            FileNotFoundError: If the specified filepath does not exist.
-            RuntimeError: If the loaded state dict does not match the model architecture.
-        """
         self.load_state_dict(torch.load(filepath, weights_only=True))
 
 
@@ -180,3 +170,7 @@ if __name__ == "__main__":
     print("\nOutput after reloading saved model:")
     print(loaded_output)
     print(f"Total difference: {torch.abs(output - loaded_output).sum().item():.6f}")
+
+    # Calculate and print total parameters
+    total_params = sum(p.numel() for p in model_96.parameters())
+    print(f"\nTotal parameters: {total_params}")
