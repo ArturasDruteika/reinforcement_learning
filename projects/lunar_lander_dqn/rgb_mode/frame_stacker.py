@@ -4,10 +4,6 @@ from collections import deque
 import torch
 
 
-DEFAULT_STACK_LENGTH = 4
-DEFAULT_IMAGE_SHAPE = (1, 224, 224)  # Default grayscale shape: (channels, height, width)
-
-
 class FrameStacker:
     """
     Stacks the last N grayscale frames along the channel dimension into a single tensor.
@@ -15,7 +11,7 @@ class FrameStacker:
     No padding is applied; output shape reflects the current number of frames.
     """
 
-    def __init__(self, stack_length: int = DEFAULT_STACK_LENGTH, image_shape: Tuple[int, int, int] = DEFAULT_IMAGE_SHAPE):
+    def __init__(self, stack_length: int, image_shape: Tuple[int, int, int]):
         """
         Initializes the frame stacker for grayscale frames.
         
