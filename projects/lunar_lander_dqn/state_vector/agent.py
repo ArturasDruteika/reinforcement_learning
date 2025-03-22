@@ -18,8 +18,8 @@ class LunarLanderDQNAgent:
         learning_rate: float = 1e-4,
         gamma: float = 0.99,
         epsilon: float = 1.0,
-        epsilon_decay: float = 0.999,
-        min_epsilon: float = 1e-4,
+        epsilon_decay: float = 0.995,
+        min_epsilon: float = 1e-2,
         memory_size: int = 100_000,
         shuffle: bool = True,
         batch_size: int = 128,
@@ -208,11 +208,11 @@ class LunarLanderDQNAgent:
         """
         self.__model.eval()
         
-        with torch.no_grad():
+        with torch.inference_mode():
             if torch.rand(1).item() < self.__epsilon:
                 return torch.randint(0, self.__action_space_size, (1,)).item()
             else:
-                return torch.argmax(self.__model(state)).item()
+                return torch.argmax(self.__model(state.unsqueeze(0))).item()
             
     def store_memory(
         self,
