@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 from torch import nn, optim
 import rootutils
@@ -23,7 +25,8 @@ class LunarLanderDQNAgent:
         memory_size: int = 100_000,
         shuffle: bool = True,
         batch_size: int = 128,
-        sync_target_every: int = 10000
+        sync_target_every: int = 10000,
+        model_weights_path: Optional[str] = None
     ) -> None:
         """
         Initializes the Lunar Lander DQN agent with networks, memory, and hyperparameters.
@@ -40,6 +43,7 @@ class LunarLanderDQNAgent:
             shuffle (bool, optional): Whether to shuffle replay memory samples. Defaults to False.
             batch_size (int, optional): Number of transitions sampled per training step. Defaults to 128.
             sync_target_every (int, optional): Steps between target network updates. Defaults to 10.
+            model_weights_path (Optional[str]): Path to load model weights from. Defaults to None.
         """
         super().__init__()
         self.__state_size = state_size
@@ -53,10 +57,13 @@ class LunarLanderDQNAgent:
         self.__shuffle = shuffle
         self.__batch_size = batch_size
         self.__sync_target_every = sync_target_every
+        self.__model_weights_path = model_weights_path
         self.__learning_step = 0
 
         # DQN Networks
         self.__model = LunarLanderMLP(self.__state_size, self.__action_space_size)
+        if self.__model_weights_path is not None:
+            self.__model.load_model_data(self.__model_weights_path)
         self.__target_model = LunarLanderMLP(self.__state_size, self.__action_space_size)
         self.__target_model.load_state_dict(self.__model.state_dict())  # Sync initially
         self.__target_model.eval()
@@ -151,6 +158,11 @@ class LunarLanderDQNAgent:
     def sync_target_every(self) -> int:
         """Steps between target network updates."""
         return self.__sync_target_every
+    
+    @property
+    def model_weights_path(self) -> str:
+        """Path to load model weights from."""
+        return self.__model_weights_path
     
     @property
     def learning_step(self) -> int:

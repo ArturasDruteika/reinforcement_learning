@@ -14,9 +14,11 @@ class LunarLanderTrainer:
         """Initialize the LunarLanderTrainer."""
         self.__env = gymnasium.make('LunarLander-v3')
         self.__visual_env = None
-        self.__agent = LunarLanderDQNAgent(self.__env.observation_space.shape[0], self.__env.action_space.n)
-        if not model_weights_path is None:
-            self.__agent.load_model(model_weights_path)
+        self.__agent = LunarLanderDQNAgent(
+            state_size=self.__env.observation_space.shape[0], 
+            action_space_size=self.__env.action_space.n, 
+            model_weights_path=model_weights_path
+        )
         self.__target_update_freq = target_update_freq
         self.__render_freq = render_freq
         self.__episode_losses = []

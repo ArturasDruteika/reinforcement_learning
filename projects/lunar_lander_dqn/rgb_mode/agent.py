@@ -31,7 +31,8 @@ class LunarLanderDQNAgent:
         shuffle: bool = True,
         batch_size: int = 64,
         sync_target_every: int = 10_000,
-        device: Optional[str] = None
+        device: Optional[str] = None,
+        model_weights_path: Optional[str] = None
     ) -> None:
         """Initialize the LunarLanderDQNAgent with hyperparameters and models.
 
@@ -65,8 +66,11 @@ class LunarLanderDQNAgent:
             self.__device = device
         else:
             self.__device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
+        self.__model_weights_path = model_weights_path
+        
         self.__model = LunarLanderCNN(*self.__state_size).to(self.__device)
+        if self.__model_weights_path is not None:
+            self.__model.load_model_data(self.__model_weights_path)
         self.__target_model = LunarLanderCNN(*self.__state_size).to(self.__device)
         self.__target_model.load_state_dict(self.__model.state_dict())
         self.__target_model.eval()
@@ -139,6 +143,16 @@ class LunarLanderDQNAgent:
     def sync_target_every(self) -> int:
         """int: Steps between target network updates."""
         return self.__sync_target_every
+    
+    @property
+    def device(self) -> str:
+        """str: Device used for training."""
+        return self.__device
+    
+    @property
+    def model_weights_path(self) -> Optional[str]:
+        """Optional[str]: Path to the model weights file."""
+        return self.__model_weights_path
     
     @property
     def learning_step(self) -> int:
