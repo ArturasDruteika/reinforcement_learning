@@ -13,7 +13,7 @@ from projects.lunar_lander_dqn.rgb_mode.frame_stacker import FrameStacker
 
 class LunarLanderTrainer:
     def __init__(self, model_weights_path=None):
-        self.__image_shape = (224, 224)  # Assuming 224x224 RGB frames
+        self.__image_shape = (96, 96)  # Assuming 224x224 RGB frames
         self.__stack_size = 4
         self.__state_size = (self.__stack_size, *self.__image_shape)  # Assuming 96x96 RGB frames
         self.__frame_preprocessor = FramePreprocessor(resize_shape=self.__image_shape)
@@ -175,7 +175,7 @@ class LunarLanderTrainer:
                 self.__update_progress_bar(t, total_reward, total_loss, avg_loss, rolling_avg_reward, rolling_avg_loss, rolling_avg_episodes_count)
 
                 if ((episode + 1) % display_interval == 0 or episode == n_episodes - 1) and self.__agent.replay_memory.is_full:
-                    # self.test_visually(max_steps=max_steps)
+                    self.test_visually(max_steps=max_steps)
                     self.__agent.save_model(f'projects/lunar_lander_dqn/rgb_mode/model_weights/lunar_lander_dqn_{episode + 1}.pt')
 
         self.__env.close()
