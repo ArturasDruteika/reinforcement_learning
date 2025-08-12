@@ -56,6 +56,9 @@ class LunarLanderTrainer:
             next_state = self.__frame_stacker_next_states.get_stacked_frames()
             self.__agent.store_memory(state, action, reward, next_state, done)
             return new_observation, reward, done, truncated, state, action, next_state
+        else:
+            # Return dummy values; e.g., None for state/action/next_state
+            return new_observation, reward, done, truncated, None, None, None
 
     def __learn_from_step(self):
         """Handles learning: updates the agent and returns loss."""
