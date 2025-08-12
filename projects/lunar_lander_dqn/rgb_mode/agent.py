@@ -264,6 +264,10 @@ class LunarLanderDQNAgent:
         """
         self.__target_model.load_model_data(filepath)
         
+    def eval_mode(self) -> None:
+        """Sets the agent to evaluation mode by disabling exploration (epsilon = 0)."""
+        self.epsilon = 0.0
+        
     def learn(self, return_loss: bool = False) -> Optional[torch.Tensor]:
         """Perform one training step using a batch from replay memory.
 
