@@ -1,7 +1,7 @@
-import random
+from typing import Any
+
 import numpy as np
 import torch
-from typing import Any, Tuple, Optional
 
 
 class ReplayMemory:
