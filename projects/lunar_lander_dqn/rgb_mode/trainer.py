@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import gymnasium as gym
 from PIL import Image
 import torch
@@ -24,7 +26,10 @@ class LunarLanderTrainer:
         self.__agent = LunarLanderDQNAgent(
             state_size=self.__state_size, 
             action_state_size=self.__env.action_space.n, 
-            model_weights_path=model_weights_path
+            model_weights_path=model_weights_path,
+            learning_rate=5e-5,
+            memory_size=20_000,
+            sync_target_every=6000
         )  # Assuming this is the correct param
         self.__episode_losses = []  # List to store total losses for rolling average
         self.__episode_rewards = []  # List to store total rewards for rolling average
@@ -133,16 +138,30 @@ class LunarLanderTrainer:
 
         print(f"Visual test episode finished. Total Reward: {total_reward}")
 
-    def train(self, n_episodes: int, max_steps: int = 1000, display_interval: int = 50, rolling_avg_episodes_count=50) -> None:
+
+    def train(
+        self,
+        n_episodes: int,
+        max_steps: int = 1000,
+        display_interval: int = 50,
+        rolling_avg_episodes_count: int = 50,
+        weights_dir: str | Path = "projects/lunar_lander_dqn/rgb_mode/model_weights",
+        weights_prefix: str = "lunar_lander_dqn",
+    ) -> None:
         """
-        Trains the Lunar Lander agent and visually tests it every display_interval episodes.
+        Trains the Lunar Lander agent and visually tests it every `display_interval` episodes.
 
         Args:
-            n_episodes (int): Number of training episodes.
-            max_steps (int): Maximum steps per episode (default: 1000).
-            display_interval (int): How often (in episodes) to visually test the model (default: 50).
-            rolling_avg_episodes_count (int): Number of episodes for rolling averages (default: 50).
+            n_episodes: Number of training episodes.
+            max_steps: Maximum steps per episode (default: 1000).
+            display_interval: How often (in episodes) to visually test the model (default: 50).
+            rolling_avg_episodes_count: Number of episodes for rolling averages (default: 50).
+            weights_dir: Directory where model weights will be saved (created if missing).
+            weights_prefix: Filename prefix for saved weight files.
         """
+        weights_dir = Path(weights_dir)
+        weights_dir.mkdir(parents=True, exist_ok=True)
+
         with trange(n_episodes, desc="Training", unit="episode") as t:
             for episode in t:
                 observation = self.__initialize_episode()
@@ -152,9 +171,9 @@ class LunarLanderTrainer:
                 total_reward = 0.0
                 total_loss = 0.0
                 loss_count = 0
-                
-                for i in range(self.__stack_size):
-                    self.__frame_stacker.push(torch.zeros((1, *self.__image_shape)))  # Initialize stack with zeros
+
+                for _ in range(self.__stack_size):
+                    self.__frame_stacker.push(torch.zeros((1, *self.__image_shape)))          # Initialize stack with zeros
                     self.__frame_stacker_next_states.push(torch.zeros((1, *self.__image_shape)))  # Initialize stack with zeros
 
                 while not (done or truncated) and step < max_steps:
@@ -175,11 +194,19 @@ class LunarLanderTrainer:
                     total_reward,
                     rolling_avg_episodes_count
                 )
-                self.__update_progress_bar(t, total_reward, total_loss, avg_loss, rolling_avg_reward, rolling_avg_loss, rolling_avg_episodes_count)
+                self.__update_progress_bar(
+                    t, total_reward, total_loss, avg_loss,
+                    rolling_avg_reward, rolling_avg_loss, rolling_avg_episodes_count
+                )
 
-                if ((episode + 1) % display_interval == 0 or episode == n_episodes - 1) and self.__agent.replay_memory.is_full:
+                # Save at intervals (and on the last episode), only after memory is warm
+                should_save = ((episode + 1) % display_interval == 0 or episode == n_episodes - 1)
+                if should_save and self.__agent.replay_memory.is_full:
+                    # Optional visual test
                     self.test_visually(max_steps=max_steps)
-                    self.__agent.save_model(f'projects/lunar_lander_dqn/rgb_mode/model_weights/lunar_lander_dqn_{episode + 1}.pt')
+
+                    weights_path = weights_dir / f"{weights_prefix}_{episode + 1}.pt"
+                    self.__agent.save_model(str(weights_path))
 
         self.__env.close()
         self.__test_env.close()

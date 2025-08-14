@@ -9,6 +9,7 @@ rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 from projects.lunar_lander_dqn.rgb_mode.net import LunarLanderCNN
 from projects.lunar_lander_dqn.rgb_mode.replay_memory import ReplayMemory
+from projects.lunar_lander_dqn.rgb_mode.metric_logger import MetricLogger
 
 
 class LunarLanderDQNAgent:
@@ -32,7 +33,9 @@ class LunarLanderDQNAgent:
         batch_size: int = 64,
         sync_target_every: int = 10_000,
         device: Optional[str] = None,
-        model_weights_path: Optional[str] = None
+        model_weights_path: Optional[str] = None,
+        log_dir: str = "runs",
+        experiment_name: str = "lunar_lander"
     ) -> None:
         """Initialize the LunarLanderDQNAgent with hyperparameters and models.
 
@@ -79,6 +82,7 @@ class LunarLanderDQNAgent:
         self.__criterion = nn.SmoothL1Loss()
         
         self.__replay_memory = ReplayMemory(self.__memory_size, self.__shuffle)
+        self.__logger = MetricLogger(log_dir=log_dir, experiment_name=experiment_name)
         
     @property
     def state_size(self) -> Tuple[int, int, int]:
@@ -300,6 +304,7 @@ class LunarLanderDQNAgent:
             expected_q_values = rewards + self.__gamma * next_q_values * (1 - dones.float())
             
         loss = self.__criterion(q_values, expected_q_values)
+        self.__logger.log("loss", loss.item(), self.__learning_step)
         
         self.__optimizer.zero_grad()
         loss.backward()
