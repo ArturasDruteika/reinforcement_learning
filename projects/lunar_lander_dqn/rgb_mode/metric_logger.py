@@ -1,6 +1,7 @@
-from torch.utils.tensorboard import SummaryWriter
 from pathlib import Path
 from typing import Optional, Union
+
+from torch.utils.tensorboard import SummaryWriter
 
 
 class MetricLogger:

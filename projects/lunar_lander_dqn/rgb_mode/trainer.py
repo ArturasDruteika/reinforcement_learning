@@ -11,10 +11,14 @@ rootutils.setup_root(__file__, indicator='.project-root', pythonpath=True)
 from projects.lunar_lander_dqn.rgb_mode.agent import LunarLanderDQNAgent
 from projects.lunar_lander_dqn.rgb_mode.frame_processor import FramePreprocessor
 from projects.lunar_lander_dqn.rgb_mode.frame_stacker import FrameStacker
+from projects.lunar_lander_dqn.rgb_mode.metric_logger import MetricLogger
 
 
 class LunarLanderTrainer:
-    def __init__(self, model_weights_path=None):
+    def __init__(self, 
+                 model_weights_path=None,
+                 log_dir: str = "runs",
+                 experiment_name: str = "lunar_lander"):
         self.__image_shape = (96, 96)  # Assuming 224x224 RGB frames
         self.__stack_size = 4
         self.__state_size = (self.__stack_size, *self.__image_shape)  # Assuming 96x96 RGB frames
@@ -33,6 +37,7 @@ class LunarLanderTrainer:
         )  # Assuming this is the correct param
         self.__episode_losses = []  # List to store total losses for rolling average
         self.__episode_rewards = []  # List to store total rewards for rolling average
+        self.__logger = MetricLogger(log_dir=log_dir, experiment_name=experiment_name)
 
     def __initialize_episode(self):
         """Initializes a new training episode by resetting the environment and frame stackers."""
@@ -198,6 +203,9 @@ class LunarLanderTrainer:
                     t, total_reward, total_loss, avg_loss,
                     rolling_avg_reward, rolling_avg_loss, rolling_avg_episodes_count
                 )
+                
+                self.__logger.log("Rolling Average Reward", rolling_avg_reward, episode)
+                self.__logger.log("Rolling Average Loss", rolling_avg_loss, episode)
 
                 # Save at intervals (and on the last episode), only after memory is warm
                 should_save = ((episode + 1) % display_interval == 0 or episode == n_episodes - 1)
