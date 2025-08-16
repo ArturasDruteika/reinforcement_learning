@@ -11,7 +11,7 @@ class FrameStacker:
     No padding is applied; output shape reflects the current number of frames.
     """
 
-    def __init__(self, stack_length: int, image_shape: Tuple[int, int, int]):
+    def __init__(self, stack_length: int, image_shape: Tuple[int, int, int] = (1, 224, 224)):
         """
         Initializes the frame stacker for grayscale frames.
         
@@ -69,7 +69,7 @@ class FrameStacker:
         """
         self.__frames.clear()
 
-    def push(self, frame: torch.Tensor) -> torch.Tensor:
+    def push(self, frame: torch.Tensor) -> None:
         """
         Adds a new grayscale frame to the stack while ensuring that at most stack_length frames are kept.
         When the stack is full, the oldest frame is removed, and the new frame is appended.

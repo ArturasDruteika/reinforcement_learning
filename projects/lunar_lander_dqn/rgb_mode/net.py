@@ -32,12 +32,10 @@ class LunarLanderCNN(nn.Module):
         if input_height % 32 != 0 or input_width % 32 != 0:
             raise ValueError(f"Input height ({input_height}) and width ({input_width}) must be divisible by 32.")
 
-        # First Convolutional Layer
         self.conv_1 = self.__create_conv_layer(input_channels, 16, 3, 1, 1)
         self.conv_2 = self.__create_conv_layer(16, 32, 3, 1, 1)
         self.conv_3 = self.__create_conv_layer(32, 64, 3, 1, 1)
 
-        # Fully Connected Layers (updated for global average pooling)
         self.mlp = self.__create_mlp_layer(self.__calculate_flat_size(), 64, 256)
         self.fc_out: nn.Linear = nn.Linear(64, output_size)
         
