@@ -33,7 +33,8 @@ class LunarLanderTrainer:
             model_weights_path=model_weights_path,
             learning_rate=5e-5,
             memory_size=20_000,
-            sync_target_every=6000
+            sync_target_every=6000,
+            min_epsilon=0.05
         )  # Assuming this is the correct param
         self.__episode_losses = []  # List to store total losses for rolling average
         self.__episode_rewards = []  # List to store total rewards for rolling average
@@ -46,7 +47,7 @@ class LunarLanderTrainer:
         self.__frame_stacker_next_states.clear_stack()
         return observation
 
-    def __process_step(self, observation):
+    def __process_step(self):
         """Processes a single step: renders, preprocesses, chooses an action, and stores memory."""
         frame = self.__env.render()  # RGB array
         image = Image.fromarray(frame).convert('L')
@@ -55,20 +56,16 @@ class LunarLanderTrainer:
 
         state = self.__frame_stacker.get_stacked_frames()
         action = self.__agent.choose_action(state)  # Training mode (with exploration)
-        new_observation, reward, done, truncated, info = self.__env.step(action)
+        _, reward, done, truncated, _ = self.__env.step(action)
 
         next_frame = self.__env.render()  # RGB array
         next_image = Image.fromarray(next_frame).convert('L')
         preprocessed_next_frame = self.__frame_preprocessor.preprocess(next_image)
         self.__frame_stacker_next_states.push(preprocessed_next_frame)
 
-        if self.__frame_stacker_next_states.is_full():
-            next_state = self.__frame_stacker_next_states.get_stacked_frames()
-            self.__agent.store_memory(state, action, reward, next_state, done)
-            return new_observation, reward, done, truncated, state, action, next_state
-        else:
-            # Return dummy values; e.g., None for state/action/next_state
-            return new_observation, reward, done, truncated, None, None, None
+        next_state = self.__frame_stacker_next_states.get_stacked_frames()
+        self.__agent.store_memory(state, action, reward, next_state, done)
+        return reward, done, truncated
 
     def __learn_from_step(self):
         """Handles learning: updates the agent and returns loss."""
@@ -166,6 +163,8 @@ class LunarLanderTrainer:
         """
         weights_dir = Path(weights_dir)
         weights_dir.mkdir(parents=True, exist_ok=True)
+        
+        total_steps = 0
 
         with trange(n_episodes, desc="Training", unit="episode") as t:
             for episode in t:
@@ -178,11 +177,11 @@ class LunarLanderTrainer:
                 loss_count = 0
 
                 for _ in range(self.__stack_size):
-                    self.__frame_stacker.push(torch.zeros((1, *self.__image_shape)))          # Initialize stack with zeros
-                    self.__frame_stacker_next_states.push(torch.zeros((1, *self.__image_shape)))  # Initialize stack with zeros
+                    self.__frame_stacker.push(torch.zeros((1, *self.__image_shape)))
+                    self.__frame_stacker_next_states.push(torch.zeros((1, *self.__image_shape)))
 
                 while not (done or truncated) and step < max_steps:
-                    observation, reward, done, truncated, state, action, next_state = self.__process_step(observation)
+                    reward, done, truncated= self.__process_step()
                     reward -= step * 0.1  # Penalize longer episodes
 
                     step_loss, step_loss_count = self.__learn_from_step()
@@ -191,8 +190,10 @@ class LunarLanderTrainer:
                     total_reward += reward
 
                     step += 1
+                    total_steps += 1
+                    self.__agent.decay_epsilon(total_steps)
 
-                self.__agent.decay_epsilon()
+                # self.__agent.decay_epsilon()
                 avg_loss, rolling_avg_loss, rolling_avg_reward = self.__calculate_metrics(
                     total_loss,
                     loss_count,

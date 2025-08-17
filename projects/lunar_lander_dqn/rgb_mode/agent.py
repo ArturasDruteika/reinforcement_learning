@@ -81,6 +81,9 @@ class LunarLanderDQNAgent:
         
         self.__replay_memory = ReplayMemory(self.__memory_size, self.__shuffle)
         
+        self.__max_epsilon = 1.0
+        self.__decay_steps = 100_000
+        
     @property
     def state_size(self) -> Tuple[int, int, int]:
         """Tuple[int, int, int]: Size of the input state."""
@@ -185,12 +188,12 @@ class LunarLanderDQNAgent:
         """ReplayMemory: The replay memory buffer."""
         return self.__replay_memory
         
-    def decay_epsilon(self) -> None:
+    def decay_epsilon(self, step) -> None:
         """Decreases the epsilon value for exploration.
 
         Epsilon is reduced by multiplying with epsilon_decay, but never below min_epsilon.
         """
-        self.__epsilon = max(self.__epsilon * self.__epsilon_decay, self.__min_epsilon)
+        self.__epsilon = max(self.__min_epsilon, self.__max_epsilon - (self.__max_epsilon - self.__min_epsilon) * (step / self.__decay_steps))
         
     def choose_action(self, state: torch.Tensor) -> int:
         """Select an action using an epsilon-greedy policy.
