@@ -62,7 +62,7 @@ class LunarLanderCNN(nn.Module):
                 padding=padding
             ),
             nn.LeakyReLU(),
-            nn.BatchNorm2d(out_channels),
+            nn.GroupNorm(1, out_channels),
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
     
