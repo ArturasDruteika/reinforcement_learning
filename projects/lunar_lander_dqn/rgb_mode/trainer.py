@@ -1,10 +1,11 @@
 from pathlib import Path
+from typing import Optional, Tuple, List
 
 import gymnasium as gym
 from PIL import Image
 import torch
 import rootutils
-from tqdm import trange
+from tqdm import trange, tqdm
 
 rootutils.setup_root(__file__, indicator='.project-root', pythonpath=True)
 
@@ -15,18 +16,45 @@ from projects.lunar_lander_dqn.rgb_mode.metric_logger import MetricLogger
 
 
 class LunarLanderTrainer:
+    """A class to train a Deep Q-Network (DQN) agent for the Lunar Lander environment.
+
+    This class manages the training process for a DQN agent in the Lunar Lander
+    environment using frame preprocessing and stacking. It initializes the environment,
+    agent, and logging utilities, and tracks episode metrics.
+
+    Attributes:
+        __image_shape (Tuple[int, int]): The shape of preprocessed frames (height, width).
+        __stack_size (int): Number of frames to stack for state representation.
+        __state_size (Tuple[int, int, int]): Shape of the state input (stack_size, height, width).
+        __frame_preprocessor (FramePreprocessor): Preprocessor for resizing and processing frames.
+        __frame_stacker (FrameStacker): Stacker for creating state from multiple frames.
+        __env (gym.Env): Training environment for Lunar Lander.
+        __test_env (gym.Env): Testing environment with human-readable rendering.
+        __agent (LunarLanderDQNAgent): DQN agent for learning and decision-making.
+        __episode_losses (List[float]): List of total losses per episode for rolling average.
+        __episode_rewards (List[float]): List of total rewards per episode for rolling average.
+        __logger (MetricLogger): Logger for tracking and saving training metrics.
+    """
+
     def __init__(self, 
-                 model_weights_path=None,
+                 model_weights_path: Optional[str] = None,
                  log_dir: str = "runs",
-                 experiment_name: str = "lunar_lander"):
-        self.__image_shape = (96, 96)  # Assuming 224x224 RGB frames
-        self.__stack_size = 4
-        self.__state_size = (self.__stack_size, *self.__image_shape)  # Assuming 96x96 RGB frames
-        self.__frame_preprocessor = FramePreprocessor(resize_shape=self.__image_shape)
-        self.__frame_stacker = FrameStacker(stack_length=self.__stack_size, image_shape=(1, *self.__image_shape))  # Stack 4 frames
-        self.__env = gym.make('LunarLander-v3', render_mode='rgb_array')  # Use v2, v3 doesn't exist yet
-        self.__test_env = gym.make('LunarLander-v3', render_mode='human')
-        self.__agent = LunarLanderDQNAgent(
+                 experiment_name: str = "lunar_lander") -> None:
+        """Initialize the LunarLanderTrainer with environment and agent configurations.
+
+        Args:
+            model_weights_path (Optional[str]): Path to pre-trained model weights. Defaults to None.
+            log_dir (str): Directory for saving training logs. Defaults to "runs".
+            experiment_name (str): Name of the experiment for logging. Defaults to "lunar_lander".
+        """
+        self.__image_shape: Tuple[int, int] = (96, 96)  # Assuming 96x96 RGB frames
+        self.__stack_size: int = 4
+        self.__state_size: Tuple[int, int, int] = (self.__stack_size, *self.__image_shape)  # Assuming 96x96 RGB frames
+        self.__frame_preprocessor: FramePreprocessor = FramePreprocessor(resize_shape=self.__image_shape)
+        self.__frame_stacker: FrameStacker = FrameStacker(stack_length=self.__stack_size, image_shape=(1, *self.__image_shape))  # Stack 4 frames
+        self.__env: gym.Env = gym.make('LunarLander-v3', render_mode='rgb_array')  # Use v2, v3 doesn't exist yet
+        self.__test_env: gym.Env = gym.make('LunarLander-v3', render_mode='human')
+        self.__agent: LunarLanderDQNAgent = LunarLanderDQNAgent(
             state_size=self.__state_size, 
             action_state_size=self.__env.action_space.n, 
             model_weights_path=model_weights_path,
@@ -35,15 +63,14 @@ class LunarLanderTrainer:
             sync_target_every=8_000,
             min_epsilon=0.05
         )  # Assuming this is the correct param
-        self.__episode_losses = []  # List to store total losses for rolling average
-        self.__episode_rewards = []  # List to store total rewards for rolling average
-        self.__logger = MetricLogger(log_dir=log_dir, experiment_name=experiment_name)
+        self.__episode_losses: List[float] = []  # List to store total losses for rolling average
+        self.__episode_rewards: List[float] = []  # List to store total rewards for rolling average
+        self.__logger: MetricLogger = MetricLogger(log_dir=log_dir, experiment_name=experiment_name)
 
     def __initialize_episode(self):
         """Initializes a new training episode by resetting the environment and frame stackers."""
-        observation, info = self.__env.reset()
+        self.__env.reset()
         self.__frame_stacker.clear_stack()
-        return observation
 
     def __process_step(self):
         """Processes a single step: builds s_t, acts, builds s_{t+1}, stores transition."""
@@ -85,30 +112,71 @@ class LunarLanderTrainer:
             loss_count += 1
         return total_loss, loss_count
 
-    def __calculate_metrics(self, total_loss, loss_count, total_reward, rolling_avg_episodes_count):
-        """Calculates loss and reward metrics, including rolling averages."""
-        if loss_count > 0:
-            avg_loss = total_loss / loss_count
-            self.__episode_losses.append(total_loss)
-            if len(self.__episode_losses) > rolling_avg_episodes_count:
-                self.__episode_losses.pop(0)
-            rolling_avg_loss = sum(self.__episode_losses) / len(self.__episode_losses)
-        else:
-            avg_loss = 0.0
-            self.__episode_losses.append(0.0)
-            if len(self.__episode_losses) > rolling_avg_episodes_count:
-                self.__episode_losses.pop(0)
-            rolling_avg_loss = sum(self.__episode_losses) / len(self.__episode_losses)
+    def __calculate_metrics(
+        self, 
+        total_loss: float, 
+        loss_count: int, 
+        total_reward: float, 
+        rolling_avg_episodes_count: int
+        ) -> tuple[float, float, float]:
+            """Calculates loss and reward metrics, including rolling averages.
 
-        self.__episode_rewards.append(total_reward)
-        if len(self.__episode_rewards) > rolling_avg_episodes_count:
-            self.__episode_rewards.pop(0)
-        rolling_avg_reward = sum(self.__episode_rewards) / len(self.__episode_rewards)
+            Args:
+                total_loss (float): The cumulative loss for the current episode.
+                loss_count (int): The number of loss updates in the current episode.
+                total_reward (float): The total reward accumulated in the current episode.
+                rolling_avg_episodes_count (int): The number of episodes to consider for rolling averages.
 
-        return avg_loss, rolling_avg_loss, rolling_avg_reward
+            Returns:
+                tuple[float, float, float]: A tuple containing:
+                    - avg_loss: The average loss for the current episode (total_loss / loss_count).
+                    - rolling_avg_loss: The rolling average loss over the last `rolling_avg_episodes_count` episodes.
+                    - rolling_avg_reward: The rolling average reward over the last `rolling_avg_episodes_count` episodes.
+            """
+            if loss_count > 0:
+                avg_loss = total_loss / loss_count
+                self.__episode_losses.append(total_loss)
+                if len(self.__episode_losses) > rolling_avg_episodes_count:
+                    self.__episode_losses.pop(0)
+                rolling_avg_loss = sum(self.__episode_losses) / len(self.__episode_losses)
+            else:
+                avg_loss = 0.0
+                self.__episode_losses.append(0.0)
+                if len(self.__episode_losses) > rolling_avg_episodes_count:
+                    self.__episode_losses.pop(0)
+                rolling_avg_loss = sum(self.__episode_losses) / len(self.__episode_losses)
 
-    def __update_progress_bar(self, t, total_reward, total_loss, avg_loss, rolling_avg_reward, rolling_avg_loss, rolling_avg_episodes_count):
-        """Updates the tqdm progress bar with current episode metrics."""
+            self.__episode_rewards.append(total_reward)
+            if len(self.__episode_rewards) > rolling_avg_episodes_count:
+                self.__episode_rewards.pop(0)
+            rolling_avg_reward = sum(self.__episode_rewards) / len(self.__episode_rewards)
+
+            return avg_loss, rolling_avg_loss, rolling_avg_reward
+
+    def __update_progress_bar(
+        self,
+        t: tqdm,
+        total_reward: float,
+        total_loss: float,
+        avg_loss: float,
+        rolling_avg_reward: float,
+        rolling_avg_loss: float,
+        rolling_avg_episodes_count: int
+    ) -> None:
+        """Updates the tqdm progress bar with current episode metrics.
+
+        This method updates the progress bar to display key training metrics for the current episode,
+        including total reward, total loss, average loss, and rolling averages for reward and loss.
+
+        Args:
+            t (tqdm): The tqdm progress bar object to update.
+            total_reward (float): The total reward accumulated in the current episode.
+            total_loss (float): The total loss accumulated in the current episode.
+            avg_loss (float): The average loss per step in the current episode.
+            rolling_avg_reward (float): The rolling average reward over a specified number of episodes.
+            rolling_avg_loss (float): The rolling average loss over a specified number of episodes.
+            rolling_avg_episodes_count (int): The number of episodes used for calculating rolling averages.
+        """
         t.set_postfix({
             "Reward": f"{total_reward:.2f}",
             "Total Loss": f"{total_loss:.4f}",
@@ -117,7 +185,7 @@ class LunarLanderTrainer:
             f"Rolling Avg Loss ({rolling_avg_episodes_count})": f"{rolling_avg_loss:.4f}"
         })
 
-    def test_visually(self, max_steps=1000):
+    def test_visually(self, max_steps: int=1000):
         """
         Runs the current agent in a visually rendered environment for one episode to inspect performance.
 
@@ -175,7 +243,7 @@ class LunarLanderTrainer:
 
         with trange(n_episodes, desc="Training", unit="episode") as t:
             for episode in t:
-                observation = self.__initialize_episode()
+                self.__initialize_episode()
                 done = False
                 truncated = False
                 step = 0
