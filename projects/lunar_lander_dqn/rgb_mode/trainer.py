@@ -24,7 +24,6 @@ class LunarLanderTrainer:
         self.__state_size = (self.__stack_size, *self.__image_shape)  # Assuming 96x96 RGB frames
         self.__frame_preprocessor = FramePreprocessor(resize_shape=self.__image_shape)
         self.__frame_stacker = FrameStacker(stack_length=self.__stack_size, image_shape=(1, *self.__image_shape))  # Stack 4 frames
-        self.__frame_stacker_next_states = FrameStacker(stack_length=4, image_shape=(1, *self.__image_shape))  # Stack 4 frames
         self.__env = gym.make('LunarLander-v3', render_mode='rgb_array')  # Use v2, v3 doesn't exist yet
         self.__test_env = gym.make('LunarLander-v3', render_mode='human')
         self.__agent = LunarLanderDQNAgent(
@@ -33,7 +32,7 @@ class LunarLanderTrainer:
             model_weights_path=model_weights_path,
             learning_rate=5e-5,
             memory_size=20_000,
-            sync_target_every=6000,
+            sync_target_every=8_000,
             min_epsilon=0.05
         )  # Assuming this is the correct param
         self.__episode_losses = []  # List to store total losses for rolling average
@@ -44,27 +43,35 @@ class LunarLanderTrainer:
         """Initializes a new training episode by resetting the environment and frame stackers."""
         observation, info = self.__env.reset()
         self.__frame_stacker.clear_stack()
-        self.__frame_stacker_next_states.clear_stack()
         return observation
 
     def __process_step(self):
-        """Processes a single step: renders, preprocesses, chooses an action, and stores memory."""
-        frame = self.__env.render()  # RGB array
-        image = Image.fromarray(frame).convert('L')
-        preprocessed_frame = self.__frame_preprocessor.preprocess(image)
-        self.__frame_stacker.push(preprocessed_frame)
+        """Processes a single step: builds s_t, acts, builds s_{t+1}, stores transition."""
+        # Assumes the stack was primed at episode start (e.g., 3 zeros + f0, or f0 pushed 4 times)
 
-        state = self.__frame_stacker.get_stacked_frames()
-        action = self.__agent.choose_action(state)  # Training mode (with exploration)
+        # 1) Build s_t from the current stack (NO push here)
+        state = self.__frame_stacker.get_stacked_frames()          # (4, H, W): [f_{t-3}, f_{t-2}, f_{t-1}, f_t]
+
+        # 2) Act
+        action = self.__agent.choose_action(state)
         _, reward, done, truncated, _ = self.__env.step(action)
 
-        next_frame = self.__env.render()  # RGB array
+        # 3) Observe next frame f_{t+1}
+        next_frame = self.__env.render()                            # requires env created with render_mode="rgb_array"
         next_image = Image.fromarray(next_frame).convert('L')
-        preprocessed_next_frame = self.__frame_preprocessor.preprocess(next_image)
-        self.__frame_stacker_next_states.push(preprocessed_next_frame)
+        preprocessed_next = self.__frame_preprocessor.preprocess(next_image)   # (1, H, W)
 
-        next_state = self.__frame_stacker_next_states.get_stacked_frames()
-        self.__agent.store_memory(state, action, reward, next_state, done)
+        # 4) Build s_{t+1} by shifting s_t and appending f_{t+1}
+        # NOTE: state[1:] are the LAST 3 frames: [f_{t-2}, f_{t-1}, f_t]
+        next_state = torch.cat([state[1:], preprocessed_next], dim=0)   # (4, H, W)
+
+        # 5) Store transition (treat time-limit as terminal)
+        terminal = done or truncated
+        self.__agent.store_memory(state, action, reward, next_state, terminal)
+
+        # 6) Advance the stack for the next loop: push exactly once per step
+        self.__frame_stacker.push(preprocessed_next)
+
         return reward, done, truncated
 
     def __learn_from_step(self):
@@ -178,7 +185,6 @@ class LunarLanderTrainer:
 
                 for _ in range(self.__stack_size):
                     self.__frame_stacker.push(torch.zeros((1, *self.__image_shape)))
-                    self.__frame_stacker_next_states.push(torch.zeros((1, *self.__image_shape)))
 
                 while not (done or truncated) and step < max_steps:
                     reward, done, truncated= self.__process_step()
