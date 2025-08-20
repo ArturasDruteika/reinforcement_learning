@@ -1,16 +1,32 @@
+from typing import Tuple
+
 import numpy as np
 import torchvision.transforms as transforms
 from PIL import Image
 
 
 class FramePreprocessor:
-    """Preprocesses frames by resizing, converting to tensors, and applying ImageNet normalization."""
+    """Preprocesses frames by resizing, converting to tensors, and applying ImageNet normalization.
 
-    def __init__(self):
+    This class creates a transformation pipeline for preprocessing image frames, typically for
+    input to convolutional neural networks (CNNs) like ResNet. The pipeline resizes frames,
+    converts them to PyTorch tensors, and applies normalization using ImageNet statistics.
+    """
+
+    def __init__(self, resize_shape: Tuple[int, int] = (224, 224)) -> None:
+        """Initializes the FramePreprocessor with a transformation pipeline.
+
+        Args:
+            resize_shape (Tuple[int, int], optional): The target size for resizing frames (height, width).
+                Defaults to (224, 224) to match common CNN input sizes.
+
+        Attributes:
+            __transform (transforms.Compose): The composed transformation pipeline for preprocessing.
+        """
         self.__transform = transforms.Compose([
-            transforms.Resize((224, 224)),  # Resize to fit ResNet or similar CNNs
+            transforms.Resize(resize_shape),  # Resize to fit ResNet or similar CNNs
             transforms.ToTensor(),  # Convert to PyTorch Tensor (float32)
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # ImageNet normalization
+            transforms.Normalize(mean=[0.5], std=[0.5])
         ])
 
     def preprocess(self, frame):
