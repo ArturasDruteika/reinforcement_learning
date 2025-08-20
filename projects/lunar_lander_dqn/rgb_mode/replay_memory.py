@@ -39,6 +39,42 @@ class ReplayMemory:
             int: The number of stored experiences in the memory.
         """
         return self.__size
+    
+    def __get_indices(self, batch_size: int) -> np.ndarray:
+        """
+        Generates indices for sampling experiences.
+
+        Args:
+            batch_size (int): The number of experiences to sample.
+
+        Returns:
+            np.ndarray: An array of indices for sampling.
+        """
+        if self.__shuffle:
+            return np.random.choice(self.__size, batch_size, replace=False)
+        else:
+            return np.arange(batch_size)
+        
+    def __convert_to_tensors(self, batch: np.ndarray):
+        """
+        Converts a batch of experiences to PyTorch tensors.
+
+        Args:
+            batch (np.ndarray): A batch of experiences.
+
+        Returns:
+            Tuple[torch.Tensor, ...]: A tuple of PyTorch tensors for states, actions, rewards, next_states, and dones.
+        """
+        # Unpack batch into separate lists: (state, action, reward, next_state, done)
+        states, actions, rewards, next_states, dones = zip(*batch)
+        
+        # Convert to PyTorch tensors (states and next_states are already tensors, just stack them)
+        states = torch.stack(states)  # Shape: (batch_size, stack_size, height, width)
+        actions = torch.tensor(actions, dtype=torch.long)  # Discrete actions → long tensor
+        rewards = torch.tensor(rewards, dtype=torch.float32)  # Rewards → float tensor
+        next_states = torch.stack(next_states)  # Shape: (batch_size, stack_size, height, width)
+        dones = torch.tensor(dones, dtype=torch.bool)  # Boolean mask for episode end
+        return states, actions, rewards, next_states, dones
 
     @property
     def capacity(self) -> int:
@@ -116,29 +152,14 @@ class ReplayMemory:
             return np.array([], dtype=object)  # Return empty array if no data available
 
         sample_size = min(self.__size, batch_size)  # Ensure valid sample size
-
-        if self.__shuffle:
-            indices = np.random.choice(self.__size, sample_size, replace=False)
-        else:
-            indices = np.arange(sample_size)
-
+        indices = self.__get_indices(sample_size)  # Get indices for sampling
         batch = self.__memory[indices]  # Retrieve sampled batch
 
         # If torch_tensor=False, return as a NumPy array (original behavior)
         if not torch_tensor:
             return batch
 
-        # Unpack batch into separate lists: (state, action, reward, next_state, done)
-        states, actions, rewards, next_states, dones = zip(*batch)
-
-        # Convert to PyTorch tensors (states and next_states are already tensors, just stack them)
-        states = torch.stack(states)  # Shape: (batch_size, stack_size, height, width)
-        actions = torch.tensor(actions, dtype=torch.long)  # Discrete actions → long tensor
-        rewards = torch.tensor(rewards, dtype=torch.float32)  # Rewards → float tensor
-        next_states = torch.stack(next_states)  # Shape: (batch_size, stack_size, height, width)
-        dones = torch.tensor(dones, dtype=torch.bool)  # Boolean mask for episode end
-
-        return states, actions, rewards, next_states, dones
+        return self.__convert_to_tensors(batch)
 
 
 if __name__ == '__main__':

@@ -83,14 +83,14 @@ class LunarLanderTrainer:
         # Assumes the stack was primed at episode start (e.g., 3 zeros + f0, or f0 pushed 4 times)
 
         # 1) Build s_t from the current stack (NO push here)
-        state = self.__frame_stacker.get_stacked_frames()          # (4, H, W): [f_{t-3}, f_{t-2}, f_{t-1}, f_t]
+        state = self.__frame_stacker.get_stacked_frames()   # (4, H, W): [f_{t-3}, f_{t-2}, f_{t-1}, f_t]
 
         # 2) Act
         action = self.__agent.choose_action(state)
         _, reward, done, truncated, _ = self.__env.step(action)
 
         # 3) Observe next frame f_{t+1}
-        next_frame = self.__env.render()                            # requires env created with render_mode="rgb_array"
+        next_frame = self.__env.render()    # requires env created with render_mode="rgb_array"
         next_image = Image.fromarray(next_frame).convert('L')
         preprocessed_next = self.__frame_preprocessor.preprocess(next_image)   # (1, H, W)
 
@@ -249,7 +249,7 @@ class LunarLanderTrainer:
         
         total_steps = 0
 
-        with trange(n_episodes, desc="Training", unit="episode") as t:
+        with trange(n_episodes, desc='Training', unit='episode') as t:
             for episode in t:
                 self.__initialize_episode()
                 done = False
@@ -303,6 +303,6 @@ class LunarLanderTrainer:
 # Run the trainer
 if __name__ == '__main__':
     trainer = LunarLanderTrainer()
-    trainer.train(n_episodes=10_000,
+    trainer.train(n_episodes=100_000,
                   display_interval=50,
                   rolling_avg_episodes_count=50)  # Test every 50 episodes

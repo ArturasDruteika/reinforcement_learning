@@ -50,40 +50,58 @@ class LunarLanderDQNAgent:
             batch_size (int): Number of samples to draw from replay memory for training.
             sync_target_every (int): Frequency (in steps) to update the target network.
             device (Optional[str]): Device to run the model on (e.g., 'cuda', 'cpu'). If None, auto-detects.
+            model_weights_path (Optional[str]): Path to pretrained model weights to load.
         """
-        self.__state_size = state_size
-        self.__action_state_size = action_state_size
-        self.__learning_rate = learning_rate
-        self.__gamma = gamma
-        self.__epsilon = epsilon
-        self.__epsilon_decay = epsilon_decay
-        self.__min_epsilon = min_epsilon
-        self.__memory_size = memory_size
-        self.__shuffle = shuffle
-        self.__batch_size = batch_size
+        self.__state_size: Tuple[int, int, int] = state_size
+        self.__action_state_size: int = action_state_size
+        self.__learning_rate: float = learning_rate
+        self.__gamma: float = gamma
+        self.__epsilon: float = epsilon
+        self.__min_epsilon: float = min_epsilon
+        self.__max_epsilon: float = 1.0
+        self.__epsilon_decay_steps: int = 100_000
+        self.__memory_size: int = memory_size
+        self.__shuffle: bool = shuffle
+        self.__batch_size: int = batch_size
         self.__sync_target_every: int = sync_target_every
-        self.__learning_step = 0
-        if device is not None:
-            self.__device = device
-        else:
-            self.__device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.__model_weights_path = model_weights_path
+        self.__learning_step: int = 0
         
-        self.__model = LunarLanderCNN(*self.__state_size).to(self.__device)
+        if device is not None:
+            self.__device: str = device
+        else:
+            self.__device: str = 'cuda' if torch.cuda.is_available() else 'cpu'
+        
+        self.__model_weights_path: Optional[str] = model_weights_path
+        
+        self.__model: LunarLanderCNN = LunarLanderCNN(*self.__state_size).to(self.__device)
         if self.__model_weights_path is not None:
             self.__model.load_model_data(self.__model_weights_path)
-        self.__target_model = LunarLanderCNN(*self.__state_size).to(self.__device)
+        
+        self.__target_model: LunarLanderCNN = LunarLanderCNN(*self.__state_size).to(self.__device)
         self.__target_model.load_state_dict(self.__model.state_dict())
         self.__target_model.eval()
         
-        self.__optimizer = optim.Adam(self.__model.parameters(), lr=self.__learning_rate)
-        self.__criterion = nn.SmoothL1Loss()
+        self.__optimizer: optim.Adam = optim.Adam(self.__model.parameters(), lr=self.__learning_rate)
+        self.__criterion: nn.Module = nn.SmoothL1Loss()
         
-        self.__replay_memory = ReplayMemory(self.__memory_size, self.__shuffle)
+        self.__replay_memory: ReplayMemory = ReplayMemory(self.__memory_size, self.__shuffle)
         
-        self.__max_epsilon = 1.0
-        self.__decay_steps = 100_000
-        
+    def __calculate_expected_q_values(self, next_states: torch.Tensor, rewards: torch.Tensor, dones: torch.Tensor) -> torch.Tensor:
+        """Calculate expected Q-values for the next states.
+
+        Args:
+            next_states (torch.Tensor): Next states from replay memory.
+            rewards (torch.Tensor): Rewards received for actions taken.
+            dones (torch.Tensor): Done flags indicating if episodes ended.
+
+        Returns:
+            torch.Tensor: Expected Q-values for the next states.
+        """
+        with torch.no_grad():
+            next_q_values = self.__target_model(next_states).max(dim=1).values
+            expected_q_values = rewards + self.__gamma * next_q_values * (1 - dones.float())
+        return expected_q_values
+
     @property
     def state_size(self) -> Tuple[int, int, int]:
         """Tuple[int, int, int]: Size of the input state."""
@@ -109,19 +127,10 @@ class LunarLanderDQNAgent:
         """float: Current exploration rate."""
         return self.__epsilon
     
-    @epsilon.setter
-    def epsilon(self, value: float) -> None:
-        """Set the exploration rate.
-
-        Args:
-            value (float): New epsilon value.
-        """
-        self.__epsilon = value
-    
     @property
-    def epsilon_decay(self) -> float:
-        """float: Decay rate for epsilon."""
-        return self.__epsilon_decay
+    def epsilon_decay_steps(self) -> int:
+        """int: Decay steps for epsilon to reach min epsilon."""
+        return self.__epsilon_decay_steps
     
     @property
     def min_epsilon(self) -> float:
@@ -193,7 +202,7 @@ class LunarLanderDQNAgent:
 
         Epsilon is reduced by multiplying with epsilon_decay, but never below min_epsilon.
         """
-        self.__epsilon = max(self.__min_epsilon, self.__max_epsilon - (self.__max_epsilon - self.__min_epsilon) * (step / self.__decay_steps))
+        self.__epsilon = max(self.__min_epsilon, self.__max_epsilon - (self.__max_epsilon - self.__min_epsilon) * (step / self.__epsilon_decay_steps))
         
     def choose_action(self, state: torch.Tensor) -> int:
         """Select an action using an epsilon-greedy policy.
@@ -298,10 +307,7 @@ class LunarLanderDQNAgent:
         dones = dones.to(self.__device)
         
         q_values = self.__model(states).gather(1, actions.unsqueeze(-1)).squeeze(-1)
-        
-        with torch.no_grad():
-            next_q_values = self.__target_model(next_states).max(dim=1).values
-            expected_q_values = rewards + self.__gamma * next_q_values * (1 - dones.float())
+        expected_q_values = self.__calculate_expected_q_values(next_states, rewards, dones)
             
         loss = self.__criterion(q_values, expected_q_values)
         
