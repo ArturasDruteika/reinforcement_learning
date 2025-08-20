@@ -52,7 +52,7 @@ class LunarLanderTrainer:
         self.__state_size: Tuple[int, int, int] = (self.__stack_size, *self.__image_shape)  # Assuming 96x96 RGB frames
         self.__frame_preprocessor: FramePreprocessor = FramePreprocessor(resize_shape=self.__image_shape)
         self.__frame_stacker: FrameStacker = FrameStacker(stack_length=self.__stack_size, image_shape=(1, *self.__image_shape))  # Stack 4 frames
-        self.__env: gym.Env = gym.make('LunarLander-v3', render_mode='rgb_array')  # Use v2, v3 doesn't exist yet
+        self.__env: gym.Env = gym.make('LunarLander-v3', render_mode='rgb_array')
         self.__test_env: gym.Env = gym.make('LunarLander-v3', render_mode='human')
         self.__agent: LunarLanderDQNAgent = LunarLanderDQNAgent(
             state_size=self.__state_size, 
@@ -61,16 +61,22 @@ class LunarLanderTrainer:
             learning_rate=5e-5,
             memory_size=20_000,
             sync_target_every=8_000,
-            min_epsilon=0.05
+            min_epsilon=0.05,
+            batch_size=256
         )  # Assuming this is the correct param
         self.__episode_losses: List[float] = []  # List to store total losses for rolling average
         self.__episode_rewards: List[float] = []  # List to store total rewards for rolling average
         self.__logger: MetricLogger = MetricLogger(log_dir=log_dir, experiment_name=experiment_name)
 
-    def __initialize_episode(self):
-        """Initializes a new training episode by resetting the environment and frame stackers."""
+    def __initialize_episode(self) -> None:
+        """Initializes a new episode by resetting the environment and preparing the initial frame stack."""
         self.__env.reset()
         self.__frame_stacker.clear_stack()
+        # Build f0 from observation
+        frame: Image.Image = Image.fromarray(self.__env.render()).convert('L')
+        f0: torch.Tensor = self.__frame_preprocessor.preprocess(frame)
+        for _ in range(self.__stack_size):
+            self.__frame_stacker.push(f0.clone())
 
     def __process_step(self):
         """Processes a single step: builds s_t, acts, builds s_{t+1}, stores transition."""
@@ -191,7 +197,8 @@ class LunarLanderTrainer:
 
         :param max_steps: Maximum steps to run the test episode (default: 1000).
         """
-        observation, info = self.__test_env.reset()
+        self.__test_env.reset()
+        self.__env.reset()
         self.__frame_stacker.clear_stack()  # Reset frame stack for testing
         done = False
         truncated = False
@@ -209,6 +216,7 @@ class LunarLanderTrainer:
                 state = self.__frame_stacker.get_stacked_frames()
                 action = self.__agent.choose_action(state)  # Assume no exploration in test
                 observation, reward, done, truncated, info = self.__test_env.step(action)
+                self.__env.step(action)  # Keep environments in sync
                 total_reward += reward
 
             step += 1
@@ -251,12 +259,9 @@ class LunarLanderTrainer:
                 total_loss = 0.0
                 loss_count = 0
 
-                for _ in range(self.__stack_size):
-                    self.__frame_stacker.push(torch.zeros((1, *self.__image_shape)))
-
                 while not (done or truncated) and step < max_steps:
                     reward, done, truncated= self.__process_step()
-                    reward -= step * 0.1  # Penalize longer episodes
+                    reward -= 0.1  # Penalize longer episodes
 
                     step_loss, step_loss_count = self.__learn_from_step()
                     total_loss += step_loss
