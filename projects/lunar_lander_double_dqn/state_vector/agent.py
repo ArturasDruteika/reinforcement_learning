@@ -20,7 +20,8 @@ class LunarLanderDoubleDQNAgent:
         learning_rate: float = 1e-4,
         gamma: float = 0.99,
         epsilon: float = 1.0,
-        epsilon_decay: float = 0.995,
+        epsilon_decay_steps: float = 1e5,
+        max_epsilon: float = 1.0,
         min_epsilon: float = 1e-2,
         memory_size: int = 100_000,
         shuffle: bool = True,
@@ -51,7 +52,8 @@ class LunarLanderDoubleDQNAgent:
         self.__learning_rate = learning_rate
         self.__gamma = gamma
         self.__epsilon = epsilon
-        self.__epsilon_decay = epsilon_decay
+        self.__epsilon_decay_steps: int = epsilon_decay_steps
+        self.__max_epsilon = max_epsilon
         self.__min_epsilon = min_epsilon
         self.__memory_size = memory_size
         self.__shuffle = shuffle
@@ -71,6 +73,32 @@ class LunarLanderDoubleDQNAgent:
         self.__optimizer = optim.Adam(self.__model.parameters(), lr=self.__learning_rate)
         self.__criterion = nn.SmoothL1Loss()
         self.__replay_memory = ReplayMemory(self.__memory_size, self.__shuffle)
+        
+    def __calculate_expected_q_values(
+        self, 
+        next_states: torch.Tensor, 
+        rewards: torch.Tensor, 
+        dones: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Calculates the expected Q-values for the next states using the Double DQN approach.
+
+        Args:
+            next_states (torch.Tensor): Batch of next states.
+
+        Returns:
+            torch.Tensor: Expected Q-values for the next states.
+        """
+        with torch.no_grad():
+            # Get the actions that maximize Q-values from the main model
+            q_values_next = self.__model(next_states)
+            next_actions = q_values_next.argmax(dim=1)
+
+            # Use the target model to get the Q-values for these actions
+            next_q_values = self.__target_model(next_states).gather(1, next_actions.unsqueeze(1)).squeeze(1)
+            expected_q_values = rewards + self.__gamma * next_q_values * (1 - dones.float())
+        
+        return next_q_values
 
     def __compute_q_values_and_targets(self) -> tuple[torch.Tensor, torch.Tensor]:
         """
@@ -81,16 +109,10 @@ class LunarLanderDoubleDQNAgent:
         """
         # Sample from replay memory
         states, actions, rewards, next_states, dones = self.__replay_memory.sample(batch_size=self.__batch_size, torch_tensor=True)
-
         # Compute Q-values for current states
         q_values = self.__model(states).gather(1, actions.unsqueeze(-1)).squeeze(-1)
-
-        # Compute target Q-values
-        with torch.no_grad():
-            q_values_next = self.__model(next_states)
-            next_actions = q_values_next.argmax(dim=1)
-            next_q_values = self.__target_model(next_states).gather(1, next_actions.unsqueeze(1)).squeeze(1)
-            expected_q_values = rewards + self.__gamma * next_q_values * (1 - dones.float())
+        # Compute expected Q-values for next states using Double DQN
+        expected_q_values = self.__calculate_expected_q_values(next_states, rewards, dones)
 
         return q_values, expected_q_values
     
@@ -132,9 +154,9 @@ class LunarLanderDoubleDQNAgent:
         return self.__epsilon
     
     @property
-    def epsilon_decay(self) -> float:
-        """Decay rate for epsilon."""
-        return self.__epsilon_decay
+    def epsilon_decay_steps(self) -> float:
+        """Epsilon decay steps untill it reaches min epsilon."""
+        return self.__epsilon_decay_steps
     
     @property
     def min_epsilon(self) -> float:
@@ -206,9 +228,12 @@ class LunarLanderDoubleDQNAgent:
         """
         self.__epsilon = value
         
-    def decay_epsilon(self) -> None:
-        """Decreases the epsilon value for exploration, respecting the minimum threshold."""
-        self.__epsilon = max(self.__epsilon * self.__epsilon_decay, self.__min_epsilon)
+    def decay_epsilon(self, step) -> None:
+        """Decreases the epsilon value for exploration.
+
+        Epsilon is reduced by multiplying with epsilon_decay, but never below min_epsilon.
+        """
+        self.__epsilon = max(self.__min_epsilon, self.__max_epsilon - (self.__max_epsilon - self.__min_epsilon) * (step / self.__epsilon_decay_steps))
         
     def choose_action(self, state: torch.Tensor) -> int:
         """
@@ -254,7 +279,7 @@ class LunarLanderDoubleDQNAgent:
 
     def save_model(self, filepath: str) -> None:
         """
-        Saves the main model’s weights to a file.
+        Saves the main model's weights to a file.
 
         Args:
             filepath (str): Path to save the model weights.
@@ -263,7 +288,7 @@ class LunarLanderDoubleDQNAgent:
         
     def load_model(self, filepath: str) -> None:
         """
-        Loads the main model’s weights from a file.
+        Loads the main model's weights from a file.
 
         Args:
             filepath (str): Path to the saved model weights.
@@ -272,7 +297,7 @@ class LunarLanderDoubleDQNAgent:
         
     def save_target_model(self, filepath: str) -> None:
         """
-        Saves the target model’s weights to a file.
+        Saves the target model's weights to a file.
 
         Args:
             filepath (str): Path to save the target model weights.
@@ -281,7 +306,7 @@ class LunarLanderDoubleDQNAgent:
         
     def load_target_model(self, filepath: str) -> None:
         """
-        Loads the target model’s weights from a file.
+        Loads the target model's weights from a file.
 
         Args:
             filepath (str): Path to the saved target model weights.
