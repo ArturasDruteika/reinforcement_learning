@@ -9,7 +9,6 @@ rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 from projects.lunar_lander_dqn.rgb_mode.net import LunarLanderCNN
 from projects.lunar_lander_dqn.rgb_mode.replay_memory import ReplayMemory
-from projects.lunar_lander_dqn.rgb_mode.metric_logger import MetricLogger
 
 
 class LunarLanderDQNAgent:
