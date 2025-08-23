@@ -20,10 +20,11 @@ class LunarLanderDoubleDQNAgent:
         learning_rate: float = 1e-4,
         gamma: float = 0.99,
         epsilon: float = 1.0,
-        epsilon_decay_steps: float = 1e5,
+        epsilon_decay_steps: float = 1e6,
         max_epsilon: float = 1.0,
         min_epsilon: float = 1e-2,
-        memory_size: int = 100_000,
+        memory_size: int = 1_000_000,
+        warmup_steps: int = 10_000,
         shuffle: bool = True,
         batch_size: int = 128,
         sync_target_every: int = 10000,
@@ -56,6 +57,7 @@ class LunarLanderDoubleDQNAgent:
         self.__max_epsilon = max_epsilon
         self.__min_epsilon = min_epsilon
         self.__memory_size = memory_size
+        self.__warmup_steps = warmup_steps
         self.__shuffle = shuffle
         self.__batch_size = batch_size
         self.__sync_target_every = sync_target_every
@@ -98,7 +100,7 @@ class LunarLanderDoubleDQNAgent:
             next_q_values = self.__target_model(next_states).gather(1, next_actions.unsqueeze(1)).squeeze(1)
             expected_q_values = rewards + self.__gamma * next_q_values * (1 - dones.float())
         
-        return next_q_values
+        return expected_q_values
 
     def __compute_q_values_and_targets(self) -> tuple[torch.Tensor, torch.Tensor]:
         """
@@ -167,6 +169,11 @@ class LunarLanderDoubleDQNAgent:
     def memory_size(self) -> int:
         """Capacity of the replay memory."""
         return self.__memory_size
+    
+    @property
+    def warmup_steps(self) -> int:
+        """Number of steps to populate replay memory before training."""
+        return self.__warmup_steps
     
     @property
     def shuffle(self) -> bool:
@@ -325,9 +332,9 @@ class LunarLanderDoubleDQNAgent:
         """
         
         # Ensure memory size is full
-        if not self.__replay_memory.is_full:
+        if not len(self.__replay_memory) >= self.__warmup_steps:
             return
-
+        
         self.__model.train()
         
         q_values, expected_q_values = self.__compute_q_values_and_targets()
