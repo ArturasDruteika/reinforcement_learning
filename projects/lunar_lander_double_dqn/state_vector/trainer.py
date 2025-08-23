@@ -1,3 +1,4 @@
+import numpy as np
 import gymnasium
 import torch
 import rootutils
@@ -25,17 +26,24 @@ class LunarLanderTrainer:
         self.__agent = LunarLanderDoubleDQNAgent(
             state_size=self.__env.observation_space.shape[0], 
             action_space_size=self.__env.action_space.n, 
-            model_weights_path=model_weights_path
+            model_weights_path=model_weights_path,
+            batch_size=64,
+            memory_size=100_000,
+            learning_rate=1e-4,
+            min_epsilon=0.05,
+            warmup_steps=10_000,
+            epsilon_decay_steps=200_000
         )
         self.__target_update_freq = target_update_freq
         self.__render_freq = render_freq
         self.__episode_losses = []
         self.__episode_rewards = []
         self.__logger: MetricLogger = MetricLogger(log_dir=log_dir, experiment_name=experiment_name)
+        self.__learning_step = 0
 
     def __run_episode(self, max_steps=1000):
         """Run a single training episode and return metrics."""
-        observation, info = self.__env.reset()
+        state, info = self.__env.reset()
         done = False
         truncated = False
         step = 0
@@ -44,18 +52,20 @@ class LunarLanderTrainer:
         total_reward = 0.0
 
         while not (done or truncated) and step < max_steps:
-            observation_tensor = torch.from_numpy(observation).float()
-            action = self.__agent.choose_action(observation_tensor)
-            new_observation, reward, done, truncated, info = self.__env.step(action)
+            state_tensor = torch.from_numpy(state).float()
+            action = self.__agent.choose_action(state_tensor)
+            new_state, reward, done, truncated, info = self.__env.step(action)
             reward -= 0.01  # Penalize for taking too long
             total_reward += reward
+            
+            terminal = done or truncated
 
             self.__agent.store_memory(
-                torch.from_numpy(observation).float(),
+                state_tensor,
                 action,
                 reward,
-                torch.from_numpy(new_observation).float(),
-                done,
+                torch.from_numpy(new_state).float(),
+                terminal
             )
 
             loss = self.__agent.learn(return_loss=True)
@@ -63,10 +73,11 @@ class LunarLanderTrainer:
                 total_loss += loss.item()
                 loss_count += 1
 
-            observation = new_observation
+            state = new_state
             step += 1
+            self.__learning_step += 1
 
-        self.__agent.decay_epsilon()
+        self.__agent.decay_epsilon(self.__learning_step)
         return total_reward, total_loss, loss_count, step
 
     def __update_metrics(self, total_reward, total_loss, loss_count, rolling_avg_episodes_count):
@@ -101,7 +112,7 @@ class LunarLanderTrainer:
         if episode % save_weights_freq == 0 and episode > 0:
             self.__agent.save_model(f'projects/lunar_lander_dqn/state_vector/model_weights/lunar_lander_dqn_{episode}.pt')
 
-        if episode % self.__render_freq == 0 and self.__agent.replay_memory.is_full:
+        if episode % self.__render_freq == 0 and self.__learning_step >= self.__agent.warmup_steps:
             self.visualize_agent(episode)
 
     def train(self, episodes=100_000, max_steps=1000, save_weights_freq=1000, rolling_avg_episodes_count=50):
@@ -113,7 +124,10 @@ class LunarLanderTrainer:
 
                 # Update metrics
                 avg_loss, rolling_avg_loss, rolling_avg_reward = self.__update_metrics(
-                    total_reward, total_loss, loss_count, rolling_avg_episodes_count
+                    total_reward, 
+                    total_loss, 
+                    loss_count, 
+                    rolling_avg_episodes_count
                 )
 
                 # Update progress bar
@@ -128,7 +142,6 @@ class LunarLanderTrainer:
                 self.__logger.log("Rolling Average Reward", rolling_avg_reward, episode)
                 self.__logger.log("Rolling Average Loss", rolling_avg_loss, episode)
 
-
                 # Perform periodic actions
                 self.__periodic_actions(episode, total_loss, loss_count, save_weights_freq)
 
@@ -140,7 +153,7 @@ class LunarLanderTrainer:
         if self.__visual_env is None:
             self.__visual_env = gymnasium.make('LunarLander-v3', render_mode="human")
 
-        observation, info = self.__visual_env.reset()
+        state, info = self.__visual_env.reset()
         done = False
         original_epsilon = self.__agent.epsilon
         self.__agent.epsilon = 0
@@ -150,11 +163,11 @@ class LunarLanderTrainer:
         for i in trange(max_steps, desc="Visualization", unit="step"):
             if done:
                 break
-            action = self.__agent.choose_action(torch.from_numpy(observation).float())
-            new_observation, reward, done, truncated, info = self.__visual_env.step(action)
+            action = self.__agent.choose_action(torch.from_numpy(state).float())
+            new_state, reward, done, truncated, info = self.__visual_env.step(action)
             total_reward += reward
             self.__visual_env.render()
-            observation = new_observation
+            state = new_state
 
         self.__agent.epsilon = original_epsilon
         self.__visual_env.close()
@@ -163,5 +176,5 @@ class LunarLanderTrainer:
 
 
 if __name__ == '__main__':
-    trainer = LunarLanderTrainer(target_update_freq=100, render_freq=100)
-    trainer.train(episodes=10_000)
+    trainer = LunarLanderTrainer(target_update_freq=80, render_freq=500)
+    trainer.train(episodes=1_000_000)
