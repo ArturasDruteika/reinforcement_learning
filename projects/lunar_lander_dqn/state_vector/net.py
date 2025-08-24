@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 from torch import nn, Tensor
 
@@ -11,7 +13,10 @@ class LunarLanderMLP(nn.Module):
     like LeakyReLU, Layer Normalization, or Dropout, despite the initial description.
     """
 
-    def __init__(self, input_size: int, output_size: int, hidden_size: int = 64) -> None:
+    def __init__(self, 
+                 input_size: int, 
+                 output_size: int, 
+                 hidden_size: int = 64) -> None:
         """
         Initialize the MLP model with fully connected layers.
 
@@ -27,7 +32,10 @@ class LunarLanderMLP(nn.Module):
         self.fc2 = self.__create_layer(hidden_size, hidden_size)
         self.fc_out = nn.Linear(hidden_size, output_size)  # Output layer (raw Q-values)
         
-    def __create_layer(self, input_size: int, output_size: int, negative_slope=0.1) -> nn.Sequential:
+    def __create_layer(self, 
+                       input_size: int, 
+                       output_size: int, 
+                       negative_slope=0.1) -> nn.Sequential:
         """
         Create a single neural network layer with a linear transformation and LeakyReLU activation.
 
@@ -59,7 +67,7 @@ class LunarLanderMLP(nn.Module):
         x = self.fc_out(x)  # Output raw Q-values (no softmax applied)
         return x
 
-    def save_model_data(self, filepath: str) -> None:
+    def save_model_data(self, filepath: Path) -> None:
         """
         Save the model parameters to a file.
 
@@ -68,7 +76,7 @@ class LunarLanderMLP(nn.Module):
         """
         torch.save(self.state_dict(), filepath)
 
-    def load_model_data(self, filepath: str) -> None:
+    def load_model_data(self, filepath: Path) -> None:
         """
         Load the model parameters from a file.
 
