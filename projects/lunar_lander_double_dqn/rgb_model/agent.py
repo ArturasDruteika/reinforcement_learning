@@ -1,4 +1,5 @@
 from typing import Tuple, Optional
+from pathlib import Path
 
 import torch
 from torch import nn
@@ -11,46 +12,28 @@ from projects.lunar_lander_dqn.rgb_mode.net import LunarLanderCNN
 from projects.lunar_lander_dqn.rgb_mode.replay_memory import ReplayMemory
 
 
-class LunarLanderDQNAgent:
+class LunarLanderDoubleDQNAgent:
     """A Deep Q-Network (DQN) agent for training on the Lunar Lander environment.
 
     This class implements a DQN agent with a CNN-based Q-network, a target network,
     replay memory, and epsilon-greedy exploration strategy.
     """
     
-    def __init__(
-        self,
-        state_size: Tuple[int, int, int] = (4, 224, 224),
-        action_state_size: int = 4,
-        learning_rate: float = 1e-4, 
-        gamma: float = 0.99, 
-        epsilon: float = 1.0, 
-        epsilon_decay: float = 0.999, 
-        min_epsilon: float = 1e-3, 
-        memory_size: int = 10_000,
-        shuffle: bool = True,
-        batch_size: int = 64,
-        sync_target_every: int = 10_000,
-        device: Optional[str] = None,
-        model_weights_path: Optional[str] = None
-    ) -> None:
-        """Initialize the LunarLanderDQNAgent with hyperparameters and models.
-
-        Args:
-            state_size (Tuple[int, int, int]): Shape of the input state (stack_size, height, width).
-            action_state_size (int): Number of possible actions in the environment.
-            learning_rate (float): Learning rate for the Adam optimizer.
-            gamma (float): Discount factor for future rewards.
-            epsilon (float): Initial exploration rate for epsilon-greedy policy.
-            epsilon_decay (float): Multiplicative decay factor for epsilon.
-            min_epsilon (float): Minimum value for epsilon.
-            memory_size (int): Capacity of the replay memory.
-            shuffle (bool): Whether to shuffle replay memory during sampling.
-            batch_size (int): Number of samples to draw from replay memory for training.
-            sync_target_every (int): Frequency (in steps) to update the target network.
-            device (Optional[str]): Device to run the model on (e.g., 'cuda', 'cpu'). If None, auto-detects.
-            model_weights_path (Optional[str]): Path to pretrained model weights to load.
-        """
+    def __init__(self,
+                 state_size: Tuple[int, int, int] = (4, 224, 224),
+                 action_state_size: int = 4,
+                 learning_rate: float = 1e-4, 
+                 gamma: float = 0.99, 
+                 epsilon: float = 1.0, 
+                 epsilon_decay: float = 0.999, 
+                 min_epsilon: float = 1e-3, 
+                 memory_size: int = 10_000,
+                 shuffle: bool = True,
+                 batch_size: int = 64,
+                 sync_target_every: int = 10_000,
+                 device: Optional[Path] = None,
+                 model_weights_path: str | Path | None = None) -> None:
+        """Initialize the LunarLanderDQNAgent with hyperparameters and models."""
         self.__state_size: Tuple[int, int, int] = state_size
         self.__action_state_size: int = action_state_size
         self.__learning_rate: float = learning_rate
@@ -58,6 +41,7 @@ class LunarLanderDQNAgent:
         self.__epsilon: float = epsilon
         self.__min_epsilon: float = min_epsilon
         self.__max_epsilon: float = 1.0
+        self.__epsilon_decay: float = epsilon_decay
         self.__epsilon_decay_steps: int = 100_000
         self.__memory_size: int = memory_size
         self.__shuffle: bool = shuffle
@@ -70,7 +54,7 @@ class LunarLanderDQNAgent:
         else:
             self.__device: str = 'cuda' if torch.cuda.is_available() else 'cpu'
         
-        self.__model_weights_path: Optional[str] = model_weights_path
+        self.__model_weights_path: Optional[Path] = Path(model_weights_path) if model_weights_path else None
         
         self.__model: LunarLanderCNN = LunarLanderCNN(*self.__state_size).to(self.__device)
         if self.__model_weights_path is not None:
@@ -84,29 +68,27 @@ class LunarLanderDQNAgent:
         self.__criterion: nn.Module = nn.SmoothL1Loss()
         
         self.__replay_memory: ReplayMemory = ReplayMemory(self.__memory_size, self.__shuffle)
-        
-    def __calculate_expected_q_values(self, next_states: torch.Tensor, rewards: torch.Tensor, dones: torch.Tensor) -> torch.Tensor:
-        """Calculate expected Q-values for the next states.
+    
+    # ==========================
+    # Private Methods
+    # ==========================
 
-        Args:
-            next_states (torch.Tensor): Next states from replay memory.
-            rewards (torch.Tensor): Rewards received for actions taken.
-            dones (torch.Tensor): Done flags indicating if episodes ended.
-
-        Returns:
-            torch.Tensor: Expected Q-values for the next states.
-        """
+    def __calculate_expected_q_values(self, 
+                                      next_states: torch.Tensor, 
+                                      rewards: torch.Tensor, 
+                                      dones: torch.Tensor) -> torch.Tensor:
+        """Calculate expected Q-values for the next states."""
         with torch.no_grad():
-            # Get the actions that maximize Q-values from the main model
             q_values_next = self.__model(next_states)
             next_actions = q_values_next.argmax(dim=1)
-
-            # Use the target model to get the Q-values for these actions
             next_q_values = self.__target_model(next_states).gather(1, next_actions.unsqueeze(1)).squeeze(1)
             expected_q_values = rewards + self.__gamma * next_q_values * (1 - dones.float())
-            
         return expected_q_values
-
+    
+    # ==========================
+    # Properties (Public Getters)
+    # ==========================
+    
     @property
     def state_size(self) -> Tuple[int, int, int]:
         """Tuple[int, int, int]: Size of the input state."""
@@ -116,22 +98,27 @@ class LunarLanderDQNAgent:
     def action_state_size(self) -> int:
         """int: Number of possible actions."""
         return self.__action_state_size
-        
+
     @property
     def learning_rate(self) -> float:
         """float: Learning rate for the optimizer."""
         return self.__learning_rate
-    
+
     @property
     def gamma(self) -> float:
         """float: Discount factor for future rewards."""
         return self.__gamma
-    
+
     @property
     def epsilon(self) -> float:
         """float: Current exploration rate."""
         return self.__epsilon
-    
+
+    @property
+    def epsilon_decay(self) -> float:
+        """float: Multiplicative decay factor for epsilon."""
+        return self.__epsilon_decay
+
     @property
     def epsilon_decay_steps(self) -> int:
         """int: Decay steps for epsilon to reach min epsilon."""
@@ -141,7 +128,12 @@ class LunarLanderDQNAgent:
     def min_epsilon(self) -> float:
         """float: Minimum epsilon value."""
         return self.__min_epsilon
-    
+
+    @property
+    def max_epsilon(self) -> float:
+        """float: Maximum epsilon value."""
+        return self.__max_epsilon
+
     @property
     def memory_size(self) -> int:
         """int: Size of the replay memory."""
@@ -161,7 +153,7 @@ class LunarLanderDQNAgent:
     def sync_target_every(self) -> int:
         """int: Steps between target network updates."""
         return self.__sync_target_every
-    
+
     @property
     def device(self) -> str:
         """str: Device used for training."""
@@ -201,48 +193,35 @@ class LunarLanderDQNAgent:
     def replay_memory(self) -> ReplayMemory:
         """ReplayMemory: The replay memory buffer."""
         return self.__replay_memory
-        
-    def decay_epsilon(self, step) -> None:
-        """Decreases the epsilon value for exploration.
+    
+    # ==========================
+    # Public Methods
+    # ==========================
 
-        Epsilon is reduced by multiplying with epsilon_decay, but never below min_epsilon.
-        """
+    def decay_epsilon(self, 
+                      step: int) -> None:
+        """Decreases the epsilon value for exploration."""
         self.__epsilon = max(self.__min_epsilon, self.__max_epsilon - (self.__max_epsilon - self.__min_epsilon) * (step / self.__epsilon_decay_steps))
         
-    def choose_action(self, state: torch.Tensor) -> int:
-        """Select an action using an epsilon-greedy policy.
-
-        Args:
-            state (torch.Tensor): Current state observation.
-
-        Returns:
-            int: Selected action index.
-        """
+    def choose_action(self, 
+                      state: torch.Tensor,
+                      train_mode: bool = False) -> int:
+        """Select an action using an epsilon-greedy policy."""
         self.__model.eval()
         
         with torch.inference_mode():
-            if torch.rand(1).item() < self.epsilon:
-                return torch.randint(0, self.__action_state_size, (1,)).item()
-            else:
-                return torch.argmax(self.model(state.unsqueeze(0).to(self.__device))).item()
+            if train_mode and torch.rand(1).item() < self.__epsilon:
+                return torch.randint(0, self.__action_space_size, (1,)).item()
+            q_values = self.__model(state.unsqueeze(0))
+            return torch.argmax(q_values).item()
             
-    def store_memory(
-        self, 
-        state: torch.Tensor, 
-        action: int, 
-        reward: float, 
-        next_state: torch.Tensor, 
-        done: bool
-    ) -> None:
-        """Store a transition in the replay memory.
-
-        Args:
-            state (torch.Tensor): Current state.
-            action (int): Action taken.
-            reward (float): Reward received.
-            next_state (torch.Tensor): Next state.
-            done (bool): Whether the episode ended.
-        """
+    def store_memory(self, 
+                     state: torch.Tensor, 
+                     action: int, 
+                     reward: float, 
+                     next_state: torch.Tensor, 
+                     done: bool) -> None:
+        """Store a transition in the replay memory."""
         self.__replay_memory.add(state, action, reward, next_state, done)
         
     def update_target_model(self) -> None:
@@ -250,51 +229,33 @@ class LunarLanderDQNAgent:
         self.__target_model.load_state_dict(self.__model.state_dict())
         print("Target model updated.")
         
-    def save_model(self, filepath: str) -> None:
-        """Save the Q-network model to a file.
-
-        Args:
-            filepath (str): Path to save the model.
-        """
+    def save_model(self, 
+                   filepath: str) -> None:
+        """Save the Q-network model to a file."""
         self.__model.save_model_data(filepath)
         
-    def load_model(self, filepath: str) -> None:
-        """Load the Q-network model from a file.
-
-        Args:
-            filepath (str): Path to the model file.
-        """
+    def load_model(self, 
+                   filepath: str) -> None:
+        """Load the Q-network model from a file."""
         self.__model.load_model_data(filepath)
         
-    def save_target_model(self, filepath: str) -> None:
-        """Save the target model to a file.
-
-        Args:
-            filepath (str): Path to save the target model.
-        """
+    def save_target_model(self, 
+                          filepath: str) -> None:
+        """Save the target model to a file."""
         self.__target_model.save_model_data(filepath)
         
-    def load_target_model(self, filepath: str) -> None:
-        """Load the target model from a file.
-
-        Args:
-            filepath (str): Path to the target model file.
-        """
+    def load_target_model(self, 
+                          filepath: str) -> None:
+        """Load the target model from a file."""
         self.__target_model.load_model_data(filepath)
         
     def eval_mode(self) -> None:
         """Sets the agent to evaluation mode by disabling exploration (epsilon = 0)."""
         self.epsilon = 0.0
         
-    def learn(self, return_loss: bool = False) -> Optional[torch.Tensor]:
-        """Perform one training step using a batch from replay memory.
-
-        Args:
-            return_loss (bool): If True, return the computed loss value.
-
-        Returns:
-            Optional[torch.Tensor]: Loss value if return_loss is True, otherwise None.
-        """
+    def learn(self, 
+              return_loss: bool = False) -> Optional[torch.Tensor]:
+        """Perform one training step using a batch from replay memory."""
         if not self.__replay_memory.is_full:
             return None
         
