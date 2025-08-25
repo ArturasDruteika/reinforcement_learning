@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 from torch import nn
 from torch import Tensor
@@ -9,7 +11,11 @@ class LunarLanderCNN(nn.Module):
     Supports input shapes where height and width are divisible by 32.
     """
 
-    def __init__(self, input_channels: int = 4, input_height: int = 224, input_width: int = 224, output_size: int = 4) -> None:
+    def __init__(self, 
+                 input_channels: int = 4, 
+                 input_height: int = 224, 
+                 input_width: int = 224, 
+                 output_size: int = 4) -> None:
         """
         Initializes the CNN model with convolutional, pooling, and fully connected layers.
 
@@ -39,7 +45,11 @@ class LunarLanderCNN(nn.Module):
         self.mlp = self.__create_mlp_layer(self.__calculate_flat_size(), 64, 256)
         self.fc_out: nn.Linear = nn.Linear(64, output_size)
         
-    def __create_conv_layer(self, in_channels: int, out_channels: int, kernel_size: int, stride: int, padding: int) -> nn.Conv2d:
+    def __create_conv_layer(self, 
+                            in_channels: int, 
+                            out_channels: int, 
+                            kernel_size: int, 
+                            stride: int, padding: int) -> nn.Conv2d:
         """
         Create a single convolutional layer with a LeakyReLU activation.
 
@@ -66,7 +76,10 @@ class LunarLanderCNN(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
     
-    def __create_mlp_layer(self, in_features: int, out_features: int, hidden_dim: int) -> nn.Linear:
+    def __create_mlp_layer(self, 
+                           in_features: int, 
+                           out_features: int, 
+                           hidden_dim: int) -> nn.Linear:
         """
         Create a single fully connected layer with a LeakyReLU activation.
 
@@ -120,10 +133,10 @@ class LunarLanderCNN(nn.Module):
 
         return x
 
-    def save_model_data(self, filepath: str) -> None:
+    def save_model_data(self, filepath: Path) -> None:
         torch.save(self.state_dict(), filepath)
 
-    def load_model_data(self, filepath: str) -> None:
+    def load_model_data(self, filepath: Path) -> None:
         self.load_state_dict(torch.load(filepath, weights_only=True))
 
 
@@ -159,7 +172,7 @@ if __name__ == "__main__":
         print("\nExpected error for invalid size (100x100):", str(e))
 
     # Test save and load
-    model_filepath: str = "lunar_lander_conv_net.pth"
+    model_filepath: Path = Path("lunar_lander_conv_net.pth")
     model.save_model_data(model_filepath)
     print(f"\nModel parameters saved to '{model_filepath}'.")
 

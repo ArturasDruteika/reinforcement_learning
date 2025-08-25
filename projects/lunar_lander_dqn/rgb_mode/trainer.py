@@ -12,7 +12,7 @@ rootutils.setup_root(__file__, indicator='.project-root', pythonpath=True)
 from projects.lunar_lander_dqn.rgb_mode.agent import LunarLanderDQNAgent
 from projects.lunar_lander_dqn.rgb_mode.frame_processor import FramePreprocessor
 from projects.lunar_lander_dqn.rgb_mode.frame_stacker import FrameStacker
-from projects.lunar_lander_dqn.rgb_mode.metric_logger import MetricLogger
+from metrics_loggers.metric_logger import MetricLogger
 
 
 class LunarLanderTrainer:
