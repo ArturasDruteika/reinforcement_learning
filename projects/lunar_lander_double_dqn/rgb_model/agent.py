@@ -31,7 +31,7 @@ class LunarLanderDoubleDQNAgent:
                  shuffle: bool = True,
                  batch_size: int = 64,
                  sync_target_every: int = 10_000,
-                 device: Optional[Path] = None,
+                 device: Optional[str] = None,
                  model_weights_path: str | Path | None = None) -> None:
         """Initialize the LunarLanderDQNAgent with hyperparameters and models."""
         self.__state_size: Tuple[int, int, int] = state_size
@@ -160,8 +160,8 @@ class LunarLanderDoubleDQNAgent:
         return self.__device
     
     @property
-    def model_weights_path(self) -> Optional[str]:
-        """Optional[str]: Path to the model weights file."""
+    def model_weights_path(self) -> Optional[Path]:
+        """Optional[Path]: Path to the model weights file."""
         return self.__model_weights_path
     
     @property
@@ -211,8 +211,8 @@ class LunarLanderDoubleDQNAgent:
         
         with torch.inference_mode():
             if train_mode and torch.rand(1).item() < self.__epsilon:
-                return torch.randint(0, self.__action_space_size, (1,)).item()
-            q_values = self.__model(state.unsqueeze(0))
+                return torch.randint(0, self.__action_state_size, (1,)).item()
+            q_values = self.__model(state.unsqueeze(0).to(self.__device))
             return torch.argmax(q_values).item()
             
     def store_memory(self, 
@@ -229,23 +229,19 @@ class LunarLanderDoubleDQNAgent:
         self.__target_model.load_state_dict(self.__model.state_dict())
         print("Target model updated.")
         
-    def save_model(self, 
-                   filepath: str) -> None:
+    def save_model(self, filepath: Path) -> None:
         """Save the Q-network model to a file."""
         self.__model.save_model_data(filepath)
         
-    def load_model(self, 
-                   filepath: str) -> None:
+    def load_model(self, filepath: Path) -> None:
         """Load the Q-network model from a file."""
         self.__model.load_model_data(filepath)
         
-    def save_target_model(self, 
-                          filepath: str) -> None:
+    def save_target_model(self, filepath: Path) -> None:
         """Save the target model to a file."""
         self.__target_model.save_model_data(filepath)
         
-    def load_target_model(self, 
-                          filepath: str) -> None:
+    def load_target_model(self, filepath: Path) -> None:
         """Load the target model from a file."""
         self.__target_model.load_model_data(filepath)
         

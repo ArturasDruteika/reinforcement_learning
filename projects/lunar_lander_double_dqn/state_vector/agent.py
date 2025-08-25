@@ -1,4 +1,5 @@
 from typing import Optional
+from pathlib import Path
 
 import torch
 from torch import nn, optim
@@ -33,7 +34,7 @@ class LunarLanderDoubleDQNAgent:
                  shuffle: bool = True,
                  batch_size: int = 128,
                  sync_target_every: int = 10000,
-                 model_weights_path: Optional[str] = None) -> None:
+                 model_weights_path: Optional[Path] = None) -> None:
         """
         Initializes the Lunar Lander Double DQN agent.
 
@@ -67,7 +68,7 @@ class LunarLanderDoubleDQNAgent:
         self.__shuffle = shuffle
         self.__batch_size = batch_size
         self.__sync_target_every = sync_target_every
-        self.__model_weights_path = model_weights_path
+        self.__model_weights_path: Optional[Path] = Path(model_weights_path) if model_weights_path else None
         self.__learning_step = 0
 
         # DQN Networks
@@ -204,7 +205,7 @@ class LunarLanderDoubleDQNAgent:
         return self.__sync_target_every
     
     @property
-    def model_weights_path(self) -> str:
+    def model_weights_path(self) -> Path:
         """Path to the model weights (if loaded)."""
         return self.__model_weights_path
     
@@ -243,7 +244,7 @@ class LunarLanderDoubleDQNAgent:
     # ==========================
     
     @model_weights_path.setter
-    def model_weights_path(self, path: str) -> None:
+    def model_weights_path(self, path: Path) -> None:
         """Sets the path to the model weights."""
         self.__model_weights_path = path
     
@@ -305,39 +306,39 @@ class LunarLanderDoubleDQNAgent:
         """Copies weights from the main model to the target model."""
         self.__target_model.load_state_dict(self.__model.state_dict())
 
-    def save_model(self, filepath: str) -> None:
+    def save_model(self, filepath: Path) -> None:
         """
         Saves the main model weights.
 
         Args:
-            filepath (str): File path to save the model.
+            filepath (Path): File path to save the model.
         """
         torch.save(self.__model.state_dict(), filepath)
         
-    def load_model(self, filepath: str) -> None:
+    def load_model(self, filepath: Path) -> None:
         """
         Loads weights into the main model.
 
         Args:
-            filepath (str): Path to the saved model weights.
+            filepath (Path): Path to the saved model weights.
         """
         self.__model.load_state_dict(torch.load(filepath))
         
-    def save_target_model(self, filepath: str) -> None:
+    def save_target_model(self, filepath: Path) -> None:
         """
         Saves the target model weights.
 
         Args:
-            filepath (str): File path to save the target model.
+            filepath (Path): File path to save the target model.
         """
         torch.save(self.__target_model.state_dict(), filepath)
         
-    def load_target_model(self, filepath: str) -> None:
+    def load_target_model(self, filepath: Path) -> None:
         """
         Loads weights into the target model.
 
         Args:
-            filepath (str): Path to the saved target model weights.
+            filepath (Path): Path to the saved target model weights.
         """
         self.__target_model.load_state_dict(torch.load(filepath))
 

@@ -43,7 +43,7 @@ class LunarLanderTrainer:
         self.__agent = LunarLanderDoubleDQNAgent(
             state_size=self.__env.observation_space.shape[0], 
             action_space_size=self.__env.action_space.n, 
-            model_weights_path=str(model_weights_path) if model_weights_path else None,
+            model_weights_path=Path(model_weights_path) if model_weights_path else None,
             batch_size=64,
             memory_size=100_000,
             learning_rate=1e-4,
